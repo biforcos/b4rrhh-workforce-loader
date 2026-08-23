@@ -4,8 +4,14 @@ spring:
 
 loader:
   backend:
-    base-url: http://localhost:8080
-    auth-token: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJiaWZvciIsImV4cCI6MTc3ODM2MDk0MCwiaWF0IjoxNzc4MzU3MzQwLCJyb2xlcyI6WyJBRE1JTiIsIkhSX01BTkFHRVIiLCJIUl9WSUVXRVIiXX0.7F2UgQFzFxNa3e2wjg3W9DFcN5aLTp9U2ww6PPMxF_w
+    # El /api va aqui y no en cada ruta: los dos clientes tienen catorce rutas
+    # relativas a esta base, y asi el prefijo se toca en un solo sitio.
+    base-url: ${LOADER_BASE_URL:http://localhost:8080/api}
+    # Nunca en el repositorio: este repo es publico. Consiguelo con el backend
+    # arrancado en perfil local:
+    #   POST http://localhost:8080/api/dev/auth/token  {"subject":"bifor"}
+    # y exportalo:  $env:LOADER_AUTH_TOKEN = "eyJ..."   (PowerShell)
+    auth-token: ${LOADER_AUTH_TOKEN:}
     hire-path: /employees/hire
 
   run:
