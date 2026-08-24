@@ -34,3 +34,5 @@ Thumbs.db
 
 # Dependency directories
 /lib/
+# Local de Claude Code: guarda comandos autorizados con sus argumentos.
+.claude/settings.local.json
