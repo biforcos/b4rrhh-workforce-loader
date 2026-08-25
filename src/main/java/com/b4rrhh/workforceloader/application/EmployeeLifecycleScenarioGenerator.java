@@ -149,7 +149,8 @@ public class EmployeeLifecycleScenarioGenerator {
                     if (!state.isActive()) {
                         continue;
                     }
-                    ContractReplaceEventPayload payload = contractMutationGenerator.generate(pools, state, random);
+                    ContractReplaceEventPayload payload =
+                            contractMutationGenerator.generate(pools, state, event.effectiveDate(), random);
                     state.setCurrentContractData(new ResolvedContractData(payload.contractCode(), payload.contractSubtypeCode()));
                     state.setLastEffectiveDate(event.effectiveDate());
                     planned.add(new EmployeeLifecycleEvent(event.eventType(), event.effectiveDate(), payload));
@@ -337,7 +338,8 @@ public class EmployeeLifecycleScenarioGenerator {
         }
 
         if (variation < 0.80) {
-            ContractReplaceEventPayload payload = contractMutationGenerator.generate(pools, seedState, random);
+            ContractReplaceEventPayload payload =
+                    contractMutationGenerator.generate(pools, seedState, rehireDate, random);
             return new ResolvedHireData(
                     baseResolvedHireData.companyCode(),
                     baseResolvedHireData.workCenterCode(),

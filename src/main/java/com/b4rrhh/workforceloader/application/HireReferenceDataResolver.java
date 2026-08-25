@@ -3,6 +3,8 @@ package com.b4rrhh.workforceloader.application;
 import com.b4rrhh.workforceloader.infrastructure.api.CatalogApiClient;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CatalogOption;
 import com.b4rrhh.workforceloader.infrastructure.config.LoaderProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -12,6 +14,8 @@ import java.util.Random;
 
 @Component
 public class HireReferenceDataResolver {
+
+    private static final Logger log = LoggerFactory.getLogger(HireReferenceDataResolver.class);
 
     private static final String PRESENCE_RESOURCE = "employee.presence";
     private static final String WORK_CENTER_RESOURCE = "employee.work_center";
@@ -165,15 +169,21 @@ public class HireReferenceDataResolver {
             referenceDate,
             random
         );
-        CatalogOption entryReason = pick(pools.entryReasons(), random);
+        CatalogOption entryReason = pick(vigentes(pools.entryReasons(), referenceDate, "motivos de entrada"), random);
 
-        AgreementWithCategories agreementWithCategories = pick(pools.agreementsWithCategories(), random);
+        AgreementWithCategories agreementWithCategories =
+                pick(convenidosVigentes(pools.agreementsWithCategories(), referenceDate), random);
         CatalogOption agreement = agreementWithCategories.agreement();
-        CatalogOption agreementCategory = pick(agreementWithCategories.categories(), random);
+        CatalogOption agreementCategory = pick(
+                categoriasDelDia(ruleSystemCode, agreement, agreementWithCategories.categories(), referenceDate),
+                random);
 
-        ContractTypeWithSubtypes contractTypeWithSubtypes = pick(pools.contractTypesWithSubtypes(), random);
+        ContractTypeWithSubtypes contractTypeWithSubtypes =
+                pick(contratosVigentes(pools.contractTypesWithSubtypes(), referenceDate), random);
         CatalogOption contractType = contractTypeWithSubtypes.contractType();
-        CatalogOption contractSubtype = pick(contractTypeWithSubtypes.subtypes(), random);
+        CatalogOption contractSubtype = pick(
+                subtiposDelDia(ruleSystemCode, contractType, contractTypeWithSubtypes.subtypes(), referenceDate),
+                random);
 
         return new ResolvedHireData(
             companyAndWorkCenter.companyCode(),
@@ -188,8 +198,133 @@ public class HireReferenceDataResolver {
     }
 
     public String resolveExitReasonFromPools(ResolvedHireReferencePools pools, Random random) {
-        CatalogOption exitReason = pick(pools.exitReasons(), random);
+        return resolveExitReasonFromPools(pools, null, random);
+    }
+
+    public String resolveExitReasonFromPools(
+            ResolvedHireReferencePools pools,
+            LocalDate referenceDate,
+            Random random
+    ) {
+        CatalogOption exitReason = pick(vigentes(pools.exitReasons(), referenceDate, "motivos de salida"), random);
         return exitReason.code();
+    }
+
+    /**
+     * Categorias del convenio vigentes ese dia, preguntandolas al backend.
+     *
+     * No vale filtrar en local aunque las categorias traigan sus fechas: lo que
+     * caduca es la RELACION convenio-categoria, que tiene vigencia propia y no
+     * viaja en la respuesta. Lo comprobamos por las malas: las categorias
+     * salian vigentes por sus fechas y el backend las rechazaba igual con
+     * INVALID_CATALOG_VALUE.
+     *
+     * Con los filtros actuales solo hay un convenio, asi que esto es una
+     * llamada por fecha distinta, y el cliente las cachea.
+     */
+    private List<CatalogOption> categoriasDelDia(
+            String ruleSystemCode,
+            CatalogOption convenio,
+            List<CatalogOption> precargadas,
+            LocalDate fecha
+    ) {
+        return delDia(ruleSystemCode, fecha, precargadas,
+                () -> catalogApiClient.getAgreementCategories(ruleSystemCode, convenio.code(), fecha),
+                "categorias del convenio " + convenio.code());
+    }
+
+    /** Mismo motivo: la relacion tipo-subtipo tiene su propia vigencia. */
+    private List<CatalogOption> subtiposDelDia(
+            String ruleSystemCode,
+            CatalogOption tipo,
+            List<CatalogOption> precargados,
+            LocalDate fecha
+    ) {
+        return delDia(ruleSystemCode, fecha, precargados,
+                () -> catalogApiClient.getContractSubtypes(ruleSystemCode, tipo.code(), fecha),
+                "subtipos del contrato " + tipo.code());
+    }
+
+    private List<CatalogOption> delDia(
+            String ruleSystemCode,
+            LocalDate fecha,
+            List<CatalogOption> precargadas,
+            java.util.function.Supplier<List<CatalogOption>> consulta,
+            String queSon
+    ) {
+        if (fecha == null || ruleSystemCode == null) {
+            return precargadas;
+        }
+        List<CatalogOption> delDia = consulta.get();
+        if (delDia == null || delDia.isEmpty()) {
+            log.warn("Ninguna opcion vigente el {} entre las {}. Se usan las precargadas y sera el backend"
+                    + " quien lo rechace.", fecha, queSon);
+            return precargadas;
+        }
+        return delDia;
+    }
+
+    /**
+     * Se queda con lo vigente en la fecha. Si no queda nada, devuelve la lista
+     * entera y avisa.
+     *
+     * Es deliberado no lanzar: la planificacion de escenarios no esta dentro de
+     * ningun try/catch, asi que una excepcion aqui abortaria la tanda completa
+     * por un hueco de catalogo. Degradando al comportamiento anterior, el
+     * backend rechaza ese evento con 422 y queda anotado en el informe, que es
+     * justo donde se quiere ver.
+     */
+    private List<CatalogOption> vigentes(List<CatalogOption> opciones, LocalDate fecha, String queSon) {
+        if (fecha == null || opciones == null || opciones.isEmpty()) {
+            return opciones;
+        }
+        List<CatalogOption> filtradas = opciones.stream()
+                .filter(o -> o.isVigenteEn(fecha))
+                .toList();
+        if (filtradas.isEmpty()) {
+            log.warn("Ningun valor vigente el {} entre los {} disponibles ({}). Se usa el catalogo sin filtrar "
+                    + "y sera el backend quien lo rechace.", fecha, queSon, opciones.size());
+            return opciones;
+        }
+        return filtradas;
+    }
+
+    private List<ContractTypeWithSubtypes> contratosVigentes(
+            List<ContractTypeWithSubtypes> origen,
+            LocalDate fecha
+    ) {
+        if (fecha == null || origen == null || origen.isEmpty()) {
+            return origen;
+        }
+        List<ContractTypeWithSubtypes> filtrados = origen.stream()
+                .filter(c -> c.contractType().isVigenteEn(fecha))
+                .filter(c -> c.subtypes().stream().anyMatch(sub -> sub.isVigenteEn(fecha)))
+                .toList();
+        if (filtrados.isEmpty()) {
+            log.warn("Ningun tipo de contrato vigente el {} entre {} disponibles. Se usa el catalogo sin filtrar.",
+                    fecha, origen.size());
+            return origen;
+        }
+        return filtrados;
+    }
+
+    private List<AgreementWithCategories> convenidosVigentes(
+            List<AgreementWithCategories> origen,
+            LocalDate fecha
+    ) {
+        if (fecha == null || origen == null || origen.isEmpty()) {
+            return origen;
+        }
+        List<AgreementWithCategories> filtrados = origen.stream()
+                .filter(a -> a.agreement().isVigenteEn(fecha))
+                .filter(a -> a.categories().stream().anyMatch(cat -> cat.isVigenteEn(fecha)))
+                .toList();
+        if (filtrados.isEmpty()) {
+            log.warn("Ningun convenio vigente el {} entre {} disponibles. Se usa el catalogo sin filtrar.",
+                    fecha, origen.size());
+            return origen;
+        }
+        return filtrados;
     }
 
     public String resolveWorkCenterCodeFromPools(ResolvedHireReferencePools pools, Random random) {

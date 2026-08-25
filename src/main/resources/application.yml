@@ -23,11 +23,25 @@ loader:
     employee-type-code: INTERNAL
 
   generation:
-    count: 10000
+    count: 250
     seed: 12345
     employee-number-prefix: EMP
     employee-number-padding: 6
-    hire-date-from: 2020-01-01
+    # NO es una fecha puesta a ojo: es el dia desde el que el sistema de reglas
+    # ESP soporta contratar de verdad, y esta medido.
+    #
+    # Los tipos de contrato de la reforma laboral arrancan el 2022-03-30
+    # (RDL 32/2021), pero la relacion entre el convenio de grandes almacenes y
+    # sus categorias no entra en vigor hasta el 2023-01-01. Antes de esa fecha
+    # el backend rechaza el alta con INVALID_CATALOG_VALUE, y hace bien: esa
+    # combinacion no existia.
+    #
+    # Si algun dia se siembran los codigos anteriores a la reforma con su
+    # caducidad, esta fecha se puede bajar. Se comprueba asi, buscando el primer
+    # dia que devuelva algo:
+    #   GET /labor-classification-catalog/agreement-categories
+    #       ?ruleSystemCode=ESP&agreementCode=<convenio>&referenceDate=<fecha>
+    hire-date-from: 2023-01-01
     hire-date-to: 2026-05-01
     working-time-percentage: 100
 
