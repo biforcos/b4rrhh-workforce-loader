@@ -1,0 +1,23 @@
+# Finales de linea gobernados por el repositorio, no por el core.autocrlf de
+# cada maquina (issue backend#11). La regla: lo que ejecuta una maquina Linux
+# va a LF si o si; lo que ejecuta PowerShell, a CRLF; el resto, LF por convenio.
+* text=auto eol=lf
+
+*.sh    text eol=lf
+*.bash  text eol=lf
+*.ps1   text eol=crlf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.xlsx  binary
+*.jar   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.eot   binary
