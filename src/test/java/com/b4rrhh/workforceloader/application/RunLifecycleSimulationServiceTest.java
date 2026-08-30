@@ -132,10 +132,7 @@ class RunLifecycleSimulationServiceTest {
                 "esp",
                 "emp",
                 "MAS000001",
-                "Ana",
-                "Garcia",
-                null,
-                "Ana",
+                SyntheticEmployee.PersonName.of("Ana", "Garcia", null),
                 LocalDate.of(2024, 1, 10),
                 workingTimePercentage
         );
