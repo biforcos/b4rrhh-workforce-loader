@@ -1,5 +1,8 @@
 package com.b4rrhh.workforceloader.infrastructure.api;
 
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateAddressRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContactRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkCenterRequest;
@@ -192,6 +195,54 @@ public class B4rrhhLifecycleClient {
             executePostWithoutResponse(
                 "labor classification replace-from-date",
                 "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/labor-classifications/replace-from-date",
+                request,
+                ruleSystemCode,
+                employeeTypeCode,
+                employeeNumber
+            );
+            }
+
+            public void createAddress(
+                String ruleSystemCode,
+                String employeeTypeCode,
+                String employeeNumber,
+                CreateAddressRequest request
+            ) {
+            executePostWithoutResponse(
+                "address create",
+                "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/addresses",
+                request,
+                ruleSystemCode,
+                employeeTypeCode,
+                employeeNumber
+            );
+            }
+
+            public void createContact(
+                String ruleSystemCode,
+                String employeeTypeCode,
+                String employeeNumber,
+                CreateContactRequest request
+            ) {
+            executePostWithoutResponse(
+                "contact create",
+                "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/contacts",
+                request,
+                ruleSystemCode,
+                employeeTypeCode,
+                employeeNumber
+            );
+            }
+
+            public void createIdentifier(
+                String ruleSystemCode,
+                String employeeTypeCode,
+                String employeeNumber,
+                CreateIdentifierRequest request
+            ) {
+            executePostWithoutResponse(
+                "identifier create",
+                "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/identifiers",
                 request,
                 ruleSystemCode,
                 employeeTypeCode,

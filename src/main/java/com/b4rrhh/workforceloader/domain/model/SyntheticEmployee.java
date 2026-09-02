@@ -16,11 +16,13 @@ public record SyntheticEmployee(
         String employeeNumber,
         PersonName name,
         LocalDate hireDate,
-        BigDecimal workingTimePercentage
+        BigDecimal workingTimePercentage,
+        SyntheticPersonalData personalData
 ) {
 
     public SyntheticEmployee {
         Objects.requireNonNull(name, "name must not be null");
+        Objects.requireNonNull(personalData, "personalData must not be null: use SyntheticPersonalData.none()");
     }
 
     public String firstName() {
@@ -41,7 +43,13 @@ public record SyntheticEmployee(
 
     public SyntheticEmployee withEmployeeNumber(String number) {
         return new SyntheticEmployee(
-                ruleSystemCode, employeeTypeCode, number, name, hireDate, workingTimePercentage
+                ruleSystemCode, employeeTypeCode, number, name, hireDate, workingTimePercentage, personalData
+        );
+    }
+
+    public SyntheticEmployee withPersonalData(SyntheticPersonalData data) {
+        return new SyntheticEmployee(
+                ruleSystemCode, employeeTypeCode, employeeNumber, name, hireDate, workingTimePercentage, data
         );
     }
 

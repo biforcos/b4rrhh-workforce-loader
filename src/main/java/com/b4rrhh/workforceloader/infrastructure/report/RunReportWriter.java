@@ -35,6 +35,10 @@ public class RunReportWriter {
             summary.costCenterReplacementsRequested(),
             summary.costCenterReplacementsSuccess(),
             summary.costCenterReplacementsFailed());
+        log.info("Personal data (addresses, contacts, identifiers): requested={} success={} failed={}",
+            summary.personalDataRequested(),
+            summary.personalDataSuccess(),
+            summary.personalDataFailed());
 
         if (dryRun) {
             log.info("Dry-run payload preview:");
@@ -54,7 +58,8 @@ public class RunReportWriter {
             + summary.workCenterChangesFailed()
             + summary.contractReplacementsFailed()
             + summary.laborClassificationReplacementsFailed()
-            + summary.costCenterReplacementsFailed() == 0) {
+            + summary.costCenterReplacementsFailed()
+            + summary.personalDataFailed() == 0) {
             log.info("All lifecycle events completed successfully");
         } else {
             log.info("Failed lifecycle events:");

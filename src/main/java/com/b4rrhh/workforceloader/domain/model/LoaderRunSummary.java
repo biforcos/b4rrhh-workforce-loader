@@ -25,6 +25,9 @@ public record LoaderRunSummary(
         int costCenterReplacementsRequested,
         int costCenterReplacementsSuccess,
         int costCenterReplacementsFailed,
+        int personalDataRequested,
+        int personalDataSuccess,
+        int personalDataFailed,
         List<LifecycleEventExecutionResult> results
 ) {
 }

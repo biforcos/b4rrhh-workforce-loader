@@ -2,7 +2,11 @@ package com.b4rrhh.workforceloader.application;
 
 import com.b4rrhh.workforceloader.domain.model.LoaderRunSummary;
 import com.b4rrhh.workforceloader.domain.model.SyntheticEmployee;
+import com.b4rrhh.workforceloader.domain.model.SyntheticPersonalData;
 import com.b4rrhh.workforceloader.infrastructure.api.B4rrhhLifecycleClient;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateAddressRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContactRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
@@ -127,6 +131,88 @@ class RunLifecycleSimulationServiceTest {
                 .isEqualTo("Invalid workingTimePercentage 120 for REHIRE event of employee MAS000001. Expected value greater than 0 and less than or equal to 100.");
     }
 
+    // workforce-loader#3: la ficha «Persona» estaba vacía porque el alta no manda dirección, contacto ni identificador.
+    @Test
+    void shouldCreatePersonalDataRightAfterHireWithTheNumberTheBackendReturned() {
+        SyntheticEmployee employee = syntheticEmployee(new BigDecimal("75")).withEmployeeNumber("EMP000001")
+                .withPersonalData(personalData());
+        EmployeeLifecycleScenario scenario = new EmployeeLifecycleScenario(
+                employee,
+                List.of(new EmployeeLifecycleEvent(LifecycleEventType.HIRE, LocalDate.of(2024, 1, 10))),
+                resolvedHireData(new BigDecimal("75")),
+                null,
+                "BAJA"
+        );
+
+        CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
+        RunLifecycleSimulationService service = new RunLifecycleSimulationService(
+                baseProperties(),
+                new FixedSyntheticEmployeeGenerator(List.of(employee)),
+                new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
+                client,
+                new CostCenterMutationGenerator(baseProperties())
+        );
+
+        LoaderRunSummary summary = service.run();
+
+        assertThat(summary.hiresSuccess()).isEqualTo(1);
+        assertThat(summary.personalDataRequested()).isEqualTo(3);
+        assertThat(summary.personalDataSuccess()).isEqualTo(3);
+        assertThat(client.personalDataEmployeeNumbers).containsOnly("MAS000001");
+        assertThat(client.addressRequests).singleElement().extracting(CreateAddressRequest::addressTypeCode).isEqualTo("HOME");
+        assertThat(client.contactRequests).singleElement().extracting(CreateContactRequest::contactValue).isEqualTo("ana.garcia@b4rrhh.example");
+        assertThat(client.identifierRequests).singleElement().extracting(CreateIdentifierRequest::isPrimary).isEqualTo(true);
+        assertThat(summary.results()).extracting(result -> result.eventType())
+                .containsExactly("HIRE", "CREATE_ADDRESS", "CREATE_CONTACT", "CREATE_IDENTIFIER");
+    }
+
+    @Test
+    void shouldRecordAFailedPersonalDataCallWithoutAbortingTheScenario() {
+        SyntheticEmployee employee = syntheticEmployee(new BigDecimal("75")).withPersonalData(personalData());
+        EmployeeLifecycleScenario scenario = new EmployeeLifecycleScenario(
+                employee,
+                List.of(
+                        new EmployeeLifecycleEvent(LifecycleEventType.HIRE, LocalDate.of(2024, 1, 10)),
+                        new EmployeeLifecycleEvent(LifecycleEventType.TERMINATE, LocalDate.of(2024, 3, 1))
+                ),
+                resolvedHireData(new BigDecimal("75")),
+                null,
+                "BAJA"
+        );
+
+        CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
+        client.rejectContacts = true;
+        RunLifecycleSimulationService service = new RunLifecycleSimulationService(
+                baseProperties(),
+                new FixedSyntheticEmployeeGenerator(List.of(employee)),
+                new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
+                client,
+                new CostCenterMutationGenerator(baseProperties())
+        );
+
+        LoaderRunSummary summary = service.run();
+
+        assertThat(summary.personalDataRequested()).isEqualTo(3);
+        assertThat(summary.personalDataSuccess()).isEqualTo(2);
+        assertThat(summary.personalDataFailed()).isEqualTo(1);
+        assertThat(summary.terminationsSuccess()).isEqualTo(1);
+        assertThat(summary.results()).filteredOn(result -> !result.success()).singleElement()
+                .satisfies(result -> {
+                    assertThat(result.eventType()).isEqualTo("CREATE_CONTACT");
+                    assertThat(result.message()).isEqualTo("contact rejected");
+                });
+    }
+
+    private static SyntheticPersonalData personalData() {
+        return new SyntheticPersonalData(
+                List.of(new SyntheticPersonalData.Address(
+                        "home", "Calle Mayor, 1", "Madrid", "esp", "28001", "ES-MD", LocalDate.of(2024, 1, 10), null
+                )),
+                List.of(new SyntheticPersonalData.Contact("email", "ana.garcia@b4rrhh.example")),
+                List.of(new SyntheticPersonalData.Identifier("national_id", "00000001R", "esp", LocalDate.of(2030, 1, 1), true))
+        );
+    }
+
     private static SyntheticEmployee syntheticEmployee(BigDecimal workingTimePercentage) {
         return new SyntheticEmployee(
                 "esp",
@@ -134,7 +220,8 @@ class RunLifecycleSimulationServiceTest {
                 "MAS000001",
                 SyntheticEmployee.PersonName.of("Ana", "Garcia", null),
                 LocalDate.of(2024, 1, 10),
-                workingTimePercentage
+                workingTimePercentage,
+                SyntheticPersonalData.none()
         );
     }
 
@@ -200,9 +287,35 @@ class RunLifecycleSimulationServiceTest {
         private final List<HireEmployeeRequest> hireRequests = new java.util.ArrayList<>();
         private final List<TerminateEmployeeRequest> terminateRequests = new java.util.ArrayList<>();
         private final List<RehireEmployeeRequest> rehireRequests = new java.util.ArrayList<>();
+        private final List<CreateAddressRequest> addressRequests = new java.util.ArrayList<>();
+        private final List<CreateContactRequest> contactRequests = new java.util.ArrayList<>();
+        private final List<CreateIdentifierRequest> identifierRequests = new java.util.ArrayList<>();
+        private final List<String> personalDataEmployeeNumbers = new java.util.ArrayList<>();
+        private boolean rejectContacts;
 
         private CapturingLifecycleClient(LoaderProperties properties) {
             super(properties, WebClient.builder());
+        }
+
+        @Override
+        public void createAddress(String ruleSystemCode, String employeeTypeCode, String employeeNumber, CreateAddressRequest request) {
+            personalDataEmployeeNumbers.add(employeeNumber);
+            addressRequests.add(request);
+        }
+
+        @Override
+        public void createContact(String ruleSystemCode, String employeeTypeCode, String employeeNumber, CreateContactRequest request) {
+            personalDataEmployeeNumbers.add(employeeNumber);
+            if (rejectContacts) {
+                throw new RuntimeException("contact rejected");
+            }
+            contactRequests.add(request);
+        }
+
+        @Override
+        public void createIdentifier(String ruleSystemCode, String employeeTypeCode, String employeeNumber, CreateIdentifierRequest request) {
+            personalDataEmployeeNumbers.add(employeeNumber);
+            identifierRequests.add(request);
         }
 
         @Override

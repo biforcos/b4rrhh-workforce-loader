@@ -78,6 +78,7 @@ public class SyntheticEmployeeGenerator {
         LoaderProperties.Defaults defaults = properties.getDefaults();
         LoaderProperties.Generation generation = properties.getGeneration();
         WorkingTimePercentageResolver workingTimePercentageResolver = new WorkingTimePercentageResolver();
+        PersonalDataGenerator personalDataGenerator = new PersonalDataGenerator();
 
         Random random = new Random(generation.getSeed());
         List<SyntheticEmployee> employees = new ArrayList<>(generation.getCount());
@@ -86,14 +87,16 @@ public class SyntheticEmployeeGenerator {
         for (int i = 1; i <= generation.getCount(); i++) {
             String employeeNumber = buildEmployeeNumber(generation, i);
             LocalDate hireDate = randomDateBetween(generation.getHireDateFrom(), generation.getHireDateTo(), random);
+            SyntheticEmployee.PersonName name = randomName(random);
 
             employees.add(new SyntheticEmployee(
                     normalizeCode(defaults.getRuleSystemCode()),
                     normalizeCode(defaults.getEmployeeTypeCode()),
                     employeeNumber,
-                    randomName(random),
+                    name,
                     hireDate,
-                    workingTimePercentage
+                    workingTimePercentage,
+                    personalDataGenerator.generate(name, hireDate, i, random)
             ));
         }
 

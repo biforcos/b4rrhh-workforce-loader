@@ -3,7 +3,11 @@ package com.b4rrhh.workforceloader.application;
 import com.b4rrhh.workforceloader.domain.model.LifecycleEventExecutionResult;
 import com.b4rrhh.workforceloader.domain.model.LoaderRunSummary;
 import com.b4rrhh.workforceloader.domain.model.SyntheticEmployee;
+import com.b4rrhh.workforceloader.domain.model.SyntheticPersonalData;
 import com.b4rrhh.workforceloader.infrastructure.api.B4rrhhLifecycleClient;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateAddressRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContactRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
@@ -84,6 +88,8 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         int costCenterReplacementsSuccess = 0;
         int costCenterReplacementsFailed = 0;
 
+        PersonalDataTally personalData = new PersonalDataTally();
+
         for (EmployeeLifecycleScenario scenario : scenarios) {
             SyntheticEmployee employee = scenario.syntheticEmployee();
             ResolvedHireData employeeResolvedHireData = scenario.resolvedHireData();
@@ -99,6 +105,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                 }
 
                 EventOutcome outcome = EventOutcome.failure("Unsupported lifecycle event: " + event.eventType());
+                boolean hireSucceeded = false;
                 switch (event.eventType()) {
                     case HIRE -> {
                         hiresRequested++;
@@ -108,6 +115,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                             outcome = hireResult.outcome();
                             if (outcome.success()) {
                                 hiresSuccess++;
+                                hireSucceeded = true;
                                 if (hireResult.employeeNumber() != null) {
                                     employee = employee.withEmployeeNumber(hireResult.employeeNumber());
                                 }
@@ -201,6 +209,13 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                         outcome.success(),
                         outcome.message()
                 ));
+
+                if (hireSucceeded) {
+                    // Dirección, contacto e identificador no caben en el payload del alta: van justo
+                    // detrás, ya con el número que devolvió el backend. Si una falla, se anota y el
+                    // escenario sigue —ningún evento posterior depende de ellos— (workforce-loader#3).
+                    executePersonalData(employee, event.effectiveDate(), results, personalData);
+                }
             }
         }
 
@@ -227,8 +242,148 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                 costCenterReplacementsRequested,
                 costCenterReplacementsSuccess,
                 costCenterReplacementsFailed,
+                personalData.requested,
+                personalData.success,
+                personalData.failed,
                 results
         );
+    }
+
+    private void executePersonalData(
+            SyntheticEmployee employee,
+            LocalDate hireDate,
+            List<LifecycleEventExecutionResult> results,
+            PersonalDataTally tally
+    ) {
+        for (SyntheticPersonalData.Address address : employee.personalData().addresses()) {
+            EventOutcome outcome = executeCreateAddress(employee, toCreateAddressRequest(address));
+            tally.record(outcome);
+            results.add(new LifecycleEventExecutionResult(
+                    employee.employeeNumber(), "CREATE_ADDRESS", address.startDate(), outcome.success(), outcome.message()
+            ));
+        }
+        for (SyntheticPersonalData.Contact contact : employee.personalData().contacts()) {
+            EventOutcome outcome = executeCreateContact(employee, new CreateContactRequest(
+                    normalizeCode(contact.contactTypeCode()), contact.contactValue()
+            ));
+            tally.record(outcome);
+            results.add(new LifecycleEventExecutionResult(
+                    employee.employeeNumber(), "CREATE_CONTACT", hireDate, outcome.success(), outcome.message()
+            ));
+        }
+        for (SyntheticPersonalData.Identifier identifier : employee.personalData().identifiers()) {
+            EventOutcome outcome = executeCreateIdentifier(employee, new CreateIdentifierRequest(
+                    normalizeCode(identifier.identifierTypeCode()),
+                    identifier.identifierValue(),
+                    normalizeCode(identifier.issuingCountryCode()),
+                    identifier.expirationDate(),
+                    identifier.primary()
+            ));
+            tally.record(outcome);
+            results.add(new LifecycleEventExecutionResult(
+                    employee.employeeNumber(), "CREATE_IDENTIFIER", hireDate, outcome.success(), outcome.message()
+            ));
+        }
+    }
+
+    private static CreateAddressRequest toCreateAddressRequest(SyntheticPersonalData.Address address) {
+        return new CreateAddressRequest(
+                normalizeCode(address.addressTypeCode()),
+                address.street(),
+                address.city(),
+                normalizeCode(address.countryCode()),
+                address.postalCode(),
+                address.regionCode(),
+                address.startDate(),
+                address.endDate()
+        );
+    }
+
+    private EventOutcome executeCreateAddress(SyntheticEmployee employee, CreateAddressRequest request) {
+        if (properties.getRun().isDryRun()) {
+            return EventOutcome.success("DRY-RUN payload -> " + summarizeEmployee(employee)
+                    + ", addressTypeCode=" + request.addressTypeCode()
+                    + ", city=" + request.city()
+                    + ", countryCode=" + request.countryCode()
+                    + ", startDate=" + request.startDate()
+                    + ", endDate=" + request.endDate());
+        }
+
+        try {
+            b4rrhhLifecycleClient.createAddress(
+                    normalizeCode(employee.ruleSystemCode()),
+                    normalizeCode(employee.employeeTypeCode()),
+                    employee.employeeNumber(),
+                    request
+            );
+            return EventOutcome.success("Address create call completed: " + request.addressTypeCode());
+        } catch (Exception ex) {
+            return EventOutcome.failure(ex.getMessage());
+        }
+    }
+
+    private EventOutcome executeCreateContact(SyntheticEmployee employee, CreateContactRequest request) {
+        if (properties.getRun().isDryRun()) {
+            return EventOutcome.success("DRY-RUN payload -> " + summarizeEmployee(employee)
+                    + ", contactTypeCode=" + request.contactTypeCode()
+                    + ", contactValue=" + request.contactValue());
+        }
+
+        try {
+            b4rrhhLifecycleClient.createContact(
+                    normalizeCode(employee.ruleSystemCode()),
+                    normalizeCode(employee.employeeTypeCode()),
+                    employee.employeeNumber(),
+                    request
+            );
+            return EventOutcome.success("Contact create call completed: " + request.contactTypeCode());
+        } catch (Exception ex) {
+            return EventOutcome.failure(ex.getMessage());
+        }
+    }
+
+    private EventOutcome executeCreateIdentifier(SyntheticEmployee employee, CreateIdentifierRequest request) {
+        if (properties.getRun().isDryRun()) {
+            return EventOutcome.success("DRY-RUN payload -> " + summarizeEmployee(employee)
+                    + ", identifierTypeCode=" + request.identifierTypeCode()
+                    + ", identifierValue=" + request.identifierValue()
+                    + ", issuingCountryCode=" + request.issuingCountryCode()
+                    + ", isPrimary=" + request.isPrimary());
+        }
+
+        try {
+            b4rrhhLifecycleClient.createIdentifier(
+                    normalizeCode(employee.ruleSystemCode()),
+                    normalizeCode(employee.employeeTypeCode()),
+                    employee.employeeNumber(),
+                    request
+            );
+            return EventOutcome.success("Identifier create call completed: " + request.identifierTypeCode());
+        } catch (Exception ex) {
+            return EventOutcome.failure(ex.getMessage());
+        }
+    }
+
+    private static String summarizeEmployee(SyntheticEmployee employee) {
+        return "employeeNumber=" + employee.employeeNumber()
+                + ", ruleSystemCode=" + normalizeCode(employee.ruleSystemCode())
+                + ", employeeTypeCode=" + normalizeCode(employee.employeeTypeCode());
+    }
+
+    /** Recuento de las llamadas de datos personales; van juntas en el resumen porque se piden juntas, tras el alta. */
+    private static final class PersonalDataTally {
+        private int requested;
+        private int success;
+        private int failed;
+
+        void record(EventOutcome outcome) {
+            requested++;
+            if (outcome.success()) {
+                success++;
+            } else {
+                failed++;
+            }
+        }
     }
 
     private HireEmployeeRequest toHireRequest(
