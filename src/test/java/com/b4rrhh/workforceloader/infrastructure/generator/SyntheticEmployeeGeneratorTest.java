@@ -5,7 +5,13 @@ import com.b4rrhh.workforceloader.infrastructure.config.LoaderProperties;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -45,6 +51,29 @@ class SyntheticEmployeeGeneratorTest {
         assertThat(nicknamed).hasSizeBetween(3, 40);
         assertThat(nicknamed).allSatisfy(employee ->
                 assertThat(employee.preferredName()).isNotEqualToIgnoringCase(employee.firstName()));
+    }
+
+    // workforce-loader#3: con 8 apellidos, buscar «Sanchez» devolvía uno de cada siete empleados.
+    @Test
+    void surnamesFollowASkewedDistributionAndTheWholeListGetsUsed() {
+        List<SyntheticEmployee> employees = new SyntheticEmployeeGenerator(properties(310)).generateEmployees();
+
+        Map<String, Long> byFirstSurname = employees.stream()
+                .collect(Collectors.groupingBy(SyntheticEmployee::lastName1, Collectors.counting()));
+        String mostFrequent = Collections.max(byFirstSurname.entrySet(), Map.Entry.comparingByValue()).getKey();
+        long hitsInEitherSurname = employees.stream()
+                .filter(employee -> mostFrequent.equals(employee.lastName1()) || mostFrequent.equals(employee.lastName2()))
+                .count();
+
+        // La forma, no el número: ningún apellido pasa del 8 % como primer apellido (antes, el 12,5 %
+        // cada uno), y buscar el más frecuente devuelve del orden de una decena, no una de cada siete.
+        assertThat(byFirstSurname.get(mostFrequent)).isLessThanOrEqualTo(310L * 8 / 100);
+        assertThat(hitsInEitherSurname).isLessThanOrEqualTo(310L * 10 / 100);
+
+        // Y la cola entera se usa: el segundo apellido sale del mismo reparto que el primero.
+        Set<String> used = new HashSet<>(byFirstSurname.keySet());
+        employees.stream().map(SyntheticEmployee::lastName2).filter(Objects::nonNull).forEach(used::add);
+        assertThat(used).containsExactlyInAnyOrderElementsOf(SyntheticEmployeeGenerator.lastNames());
     }
 
     @Test

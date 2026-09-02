@@ -10,11 +10,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import static java.util.Map.entry;
+
 @Component
 public class SyntheticEmployeeGenerator {
 
-    private static final List<String> FIRST_NAMES = List.of(
-            "Ana", "Luis", "Marta", "Carlos", "Elena", "David", "Lucia", "Pablo"
+    /**
+     * Nombres y apellidos con distribución sesgada, no con variedad máxima: en España se repiten
+     * García, Fernández, López y Martínez, y una plantilla sin ninguna repetición se ve más falsa,
+     * no menos. Sin tildes, como el resto de la semilla, para que buscar «Sanchez» encuentre.
+     * Los pesos son una aproximación al padrón; el objetivo es que el apellido más frecuente salga
+     * del orden de una decena de veces en 310 y que la cola entera se use (workforce-loader#3).
+     */
+    private static final WeightedNameList FIRST_NAMES = WeightedNameList.of(
+            entry("Maria", 5), entry("Jose", 5), entry("Antonio", 4), entry("Carmen", 4),
+            entry("Manuel", 3), entry("Francisco", 3), entry("Ana", 3), entry("David", 3),
+            entry("Juan", 3), entry("Laura", 3), entry("Isabel", 3), entry("Javier", 3),
+            entry("Carlos", 2), entry("Marta", 2), entry("Cristina", 2), entry("Lucia", 2),
+            entry("Elena", 2), entry("Daniel", 2), entry("Miguel", 2), entry("Pablo", 2),
+            entry("Sara", 2), entry("Paula", 2), entry("Alejandro", 2), entry("Sergio", 2),
+            entry("Jorge", 1), entry("Alberto", 1), entry("Raquel", 1), entry("Rocio", 1),
+            entry("Pilar", 1), entry("Beatriz", 1), entry("Nuria", 1), entry("Dolores", 1),
+            entry("Francisca", 1), entry("Ruben", 1), entry("Ines", 1), entry("Andres", 1)
     );
 
     /**
@@ -31,9 +48,25 @@ public class SyntheticEmployeeGenerator {
     private static final List<String> NICKNAMED_FIRST_NAMES = List.copyOf(NICKNAMES.keySet());
     private static final int NICKNAME_PERCENT = 5;
 
-    private static final List<String> LAST_NAMES = List.of(
-            "Garcia", "Fernandez", "Lopez", "Sanchez", "Martinez", "Gonzalez", "Ruiz", "Navarro"
+    private static final WeightedNameList LAST_NAMES = WeightedNameList.of(
+            entry("Garcia", 6), entry("Fernandez", 5), entry("Gonzalez", 5), entry("Rodriguez", 5),
+            entry("Lopez", 5), entry("Martinez", 5), entry("Sanchez", 5), entry("Perez", 5),
+            entry("Gomez", 4), entry("Martin", 4), entry("Jimenez", 4), entry("Ruiz", 4),
+            entry("Hernandez", 4), entry("Diaz", 4), entry("Moreno", 4), entry("Alvarez", 4),
+            entry("Romero", 3), entry("Alonso", 3), entry("Gutierrez", 3), entry("Navarro", 3),
+            entry("Torres", 3), entry("Dominguez", 3), entry("Vazquez", 3), entry("Ramos", 3),
+            entry("Gil", 3), entry("Ramirez", 3), entry("Serrano", 3), entry("Blanco", 3),
+            entry("Molina", 3), entry("Morales", 3), entry("Suarez", 3), entry("Ortega", 3),
+            entry("Delgado", 2), entry("Castro", 2), entry("Ortiz", 2), entry("Rubio", 2),
+            entry("Marin", 2), entry("Sanz", 2), entry("Iglesias", 2), entry("Medina", 2),
+            entry("Garrido", 2), entry("Cortes", 2), entry("Castillo", 2), entry("Santos", 2),
+            entry("Lozano", 2), entry("Guerrero", 2), entry("Cano", 2), entry("Herrera", 2)
     );
+
+    /** Los apellidos de la semilla, para que el test afirme que la cola entera se usa. */
+    static List<String> lastNames() {
+        return LAST_NAMES.names();
+    }
 
     private final LoaderProperties properties;
 
@@ -68,14 +101,15 @@ public class SyntheticEmployeeGenerator {
     }
 
     private static SyntheticEmployee.PersonName randomName(Random random) {
-        String lastName1 = pick(LAST_NAMES, random);
-        String lastName2 = random.nextBoolean() ? pick(LAST_NAMES, random) : null;
+        // El segundo apellido sale del mismo reparto que el primero, no de una lista aparte.
+        String lastName1 = LAST_NAMES.pick(random);
+        String lastName2 = random.nextBoolean() ? LAST_NAMES.pick(random) : null;
         if (random.nextInt(100) < NICKNAME_PERCENT) {
             String firstName = pick(NICKNAMED_FIRST_NAMES, random);
             return SyntheticEmployee.PersonName.of(firstName, lastName1, lastName2)
                     .withPreferredName(NICKNAMES.get(firstName));
         }
-        return SyntheticEmployee.PersonName.of(pick(FIRST_NAMES, random), lastName1, lastName2);
+        return SyntheticEmployee.PersonName.of(FIRST_NAMES.pick(random), lastName1, lastName2);
     }
 
     private static String pick(List<String> source, Random random) {
