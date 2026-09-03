@@ -196,7 +196,10 @@ final class PersonalDataGenerator {
     }
 
     private String uniqueEmail(SyntheticEmployee.PersonName name) {
-        String base = (name.firstName() + "." + name.lastName1()).toLowerCase(Locale.ROOT);
+        // De un nombre compuesto, sólo la primera parte: «Maria del Carmen» no cabe en un correo,
+        // y el backend rechaza el contacto EMAIL con espacios (workforce-loader#4).
+        String givenName = name.firstName().trim().split("\\s+")[0];
+        String base = (givenName + "." + name.lastName1()).toLowerCase(Locale.ROOT);
         String local = base;
         for (int suffix = 2; !usedEmails.add(local); suffix++) {
             local = base + suffix;

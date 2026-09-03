@@ -35,18 +35,38 @@ public class SyntheticEmployeeGenerator {
     );
 
     /**
-     * Los nombres con apodo de verdad —«Paco» por Francisco—, que reciben más o menos un 5 % de
-     * los empleados: así el nombre preferido lo ejercita alguien, en vez de estar encendido en
-     * todos con el nombre de pila repetido (workforce-loader#2).
+     * Quienes piden que se les muestre distinto, y cómo. El {@code preferredName} del backend no
+     * es un hipocorístico: sustituye al nombre <em>entero</em> en el directorio, gana sobre el
+     * formato normativo y sale sin apellidos (backend#42). Un «Paco» suelto entre «Juan Antonio
+     * Biforcos Amor» y «Marta Fernandez Lopez» se lee como un dato que falta, así que lo que se
+     * siembra es la forma corta más el primer apellido: «Paco Martinez», «Mamen Ruiz». Y sobre
+     * todo el caso más común en la vida real, el nombre compuesto del que sólo se usa una parte:
+     * «Juan Antonio Biforcos Amor» -> «Juan Biforcos» (workforce-loader#4).
+     *
+     * <p>Lista y no mapa: el orden de iteración de un {@code Map.of} cambia de una JVM a otra, y
+     * la misma semilla tiene que dar la misma plantilla.
      */
-    private static final Map<String, String> NICKNAMES = Map.of(
-            "Francisco", "Paco",
-            "Jose", "Pepe",
-            "Dolores", "Lola",
-            "Francisca", "Paqui"
+    private static final List<Map.Entry<String, String>> SUBSTITUTES = List.of(
+            entry("Juan Antonio", "Juan"),
+            entry("Jose Antonio", "Antonio"),
+            entry("Jose Luis", "Jose"),
+            entry("Ana Maria", "Ana"),
+            entry("Francisco Javier", "Paco"),
+            entry("Maria del Carmen", "Mamen"),
+            entry("Maria Isabel", "Maribel"),
+            entry("Francisco", "Paco"),
+            entry("Jose", "Pepe"),
+            entry("Dolores", "Lola"),
+            entry("Francisca", "Paqui")
     );
-    private static final List<String> NICKNAMED_FIRST_NAMES = List.copyOf(NICKNAMES.keySet());
-    private static final int NICKNAME_PERCENT = 5;
+
+    /**
+     * Pedir que te muestren distinto al normativo es cosa de uno o dos de cada cien, no de uno de
+     * cada veinte: con 1000 empleados salen unas veinte filas, bastantes para que el caso exista y
+     * se pueda mirar, pocas para que el directorio no parezca lleno de datos a medias
+     * (workforce-loader#4).
+     */
+    static final int SUBSTITUTE_PERCENT = 2;
 
     private static final WeightedNameList LAST_NAMES = WeightedNameList.of(
             entry("Garcia", 6), entry("Fernandez", 5), entry("Gonzalez", 5), entry("Rodriguez", 5),
@@ -107,15 +127,15 @@ public class SyntheticEmployeeGenerator {
         // El segundo apellido sale del mismo reparto que el primero, no de una lista aparte.
         String lastName1 = LAST_NAMES.pick(random);
         String lastName2 = random.nextBoolean() ? LAST_NAMES.pick(random) : null;
-        if (random.nextInt(100) < NICKNAME_PERCENT) {
-            String firstName = pick(NICKNAMED_FIRST_NAMES, random);
-            return SyntheticEmployee.PersonName.of(firstName, lastName1, lastName2)
-                    .withPreferredName(NICKNAMES.get(firstName));
+        if (random.nextInt(100) < SUBSTITUTE_PERCENT) {
+            Map.Entry<String, String> substitute = pick(SUBSTITUTES, random);
+            return SyntheticEmployee.PersonName.of(substitute.getKey(), lastName1, lastName2)
+                    .withPreferredName(substitute.getValue() + " " + lastName1);
         }
         return SyntheticEmployee.PersonName.of(FIRST_NAMES.pick(random), lastName1, lastName2);
     }
 
-    private static String pick(List<String> source, Random random) {
+    private static <T> T pick(List<T> source, Random random) {
         return source.get(random.nextInt(source.size()));
     }
 

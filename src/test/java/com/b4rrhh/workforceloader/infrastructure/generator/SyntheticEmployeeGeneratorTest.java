@@ -39,18 +39,27 @@ class SyntheticEmployeeGeneratorTest {
                 .noneMatch(employee -> employee.firstName().equalsIgnoreCase(employee.preferredName()));
     }
 
+    // workforce-loader#4: el sustituto reemplaza el nombre entero en el directorio, y un «Paco»
+    // suelto en un 5 % de las filas se leía como un dato que falta, no como una preferencia.
     @Test
-    void aFewGetARealNicknameSoThePreferredNameIsExercised() {
-        List<SyntheticEmployee> employees = new SyntheticEmployeeGenerator(properties(310)).generateEmployees();
+    void theFewSubstitutesReadAsFullNamesWithASurname() {
+        List<SyntheticEmployee> employees = new SyntheticEmployeeGenerator(properties(1000)).generateEmployees();
 
-        List<SyntheticEmployee> nicknamed = employees.stream()
+        List<SyntheticEmployee> substituted = employees.stream()
                 .filter(employee -> employee.preferredName() != null)
                 .toList();
 
-        // Alrededor del 5 %: ni ninguno (no se ejercita) ni todos (no se distingue).
-        assertThat(nicknamed).hasSizeBetween(3, 40);
-        assertThat(nicknamed).allSatisfy(employee ->
-                assertThat(employee.preferredName()).isNotEqualToIgnoringCase(employee.firstName()));
+        // Uno o dos de cada cien. Con 1000 la media son 20; la banda deja sitio al azar de la
+        // semilla sin admitir ni «ninguno» ni el 5 % de antes.
+        assertThat(SyntheticEmployeeGenerator.SUBSTITUTE_PERCENT).isBetween(1, 2);
+        assertThat(substituted).hasSizeBetween(5, 35);
+
+        // Ninguno es una sola palabra: todos llevan el primer apellido, y ninguno es el nombre de pila.
+        assertThat(substituted).allSatisfy(employee -> {
+            assertThat(employee.preferredName().trim().split("\\s+")).hasSizeGreaterThanOrEqualTo(2);
+            assertThat(employee.preferredName()).endsWith(" " + employee.lastName1());
+            assertThat(employee.preferredName()).isNotEqualToIgnoringCase(employee.firstName());
+        });
     }
 
     // workforce-loader#3: con 8 apellidos, buscar «Sanchez» devolvía uno de cada siete empleados.

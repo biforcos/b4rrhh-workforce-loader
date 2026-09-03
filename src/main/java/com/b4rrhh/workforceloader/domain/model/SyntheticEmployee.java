@@ -54,8 +54,15 @@ public record SyntheticEmployee(
     }
 
     /**
-     * Nombre de pila, apellidos y, si lo hay, el apodo. El apodo es lo que sustituye al nombre de
-     * pila —«Paco» por Francisco—, nunca el nombre de pila repetido.
+     * Nombre de pila, apellidos y, si lo hay, el sustituto del nombre para mostrar.
+     *
+     * <p>{@code preferredName} no es un hipocorístico que reemplace al nombre de pila: es lo que
+     * la persona pide que se enseñe <em>en lugar del nombre entero</em>. En el backend gana sobre
+     * el formato normativo de la reglamentación y sale tal cual, sin componer con los apellidos
+     * (backend#42). Por eso tiene que poder leerse como un nombre por sí solo —«Paco Martinez»,
+     * «Juan Biforcos»—: un «Paco» suelto en el directorio no se lee como una preferencia, sino
+     * como un dato que falta (workforce-loader#4). Y nunca el nombre de pila repetido, que es lo
+     * que dejó a los 310 sin apellido (workforce-loader#2).
      */
     public record PersonName(
             String firstName,
@@ -72,7 +79,7 @@ public record SyntheticEmployee(
             }
         }
 
-        /** Sin apodo, que es lo normal. */
+        /** Sin sustituto, que es lo normal. */
         public static PersonName of(String firstName, String lastName1, String lastName2) {
             return new PersonName(firstName, lastName1, lastName2, null);
         }
