@@ -294,12 +294,14 @@ public class LoaderProperties {
         }
     }
 
+    /**
+     * Los centros salen del catalogo COST_CENTER del sistema de reglas, como el resto de codigos.
+     * Antes venian de una lista aqui que nadie rellenaba, y con la lista vacia el reparto se
+     * apagaba solo: mil empleados y ni una fila en employee.cost_center (workforce-loader#5).
+     */
     public static class CostCenter {
 
-        private boolean enabled;
-
-        @Valid
-        private List<Item> items = new ArrayList<>();
+        private boolean enabled = true;
 
         public boolean isEnabled() {
             return enabled;
@@ -307,40 +309,6 @@ public class LoaderProperties {
 
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
-        }
-
-        public List<Item> getItems() {
-            return items;
-        }
-
-        public void setItems(List<Item> items) {
-            this.items = items;
-        }
-
-        public static class Item {
-
-            @NotBlank
-            private String costCenterCode;
-
-            @NotNull
-            @Min(1)
-            private Integer allocationPercentage;
-
-            public String getCostCenterCode() {
-                return costCenterCode;
-            }
-
-            public void setCostCenterCode(String costCenterCode) {
-                this.costCenterCode = costCenterCode;
-            }
-
-            public Integer getAllocationPercentage() {
-                return allocationPercentage;
-            }
-
-            public void setAllocationPercentage(Integer allocationPercentage) {
-                this.allocationPercentage = allocationPercentage;
-            }
         }
     }
 

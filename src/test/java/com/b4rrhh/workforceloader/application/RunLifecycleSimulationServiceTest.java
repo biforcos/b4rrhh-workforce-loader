@@ -4,6 +4,8 @@ import com.b4rrhh.workforceloader.domain.model.LoaderRunSummary;
 import com.b4rrhh.workforceloader.domain.model.SyntheticEmployee;
 import com.b4rrhh.workforceloader.domain.model.SyntheticPersonalData;
 import com.b4rrhh.workforceloader.infrastructure.api.B4rrhhLifecycleClient;
+import com.b4rrhh.workforceloader.infrastructure.api.CatalogApiClient;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CatalogOption;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateAddressRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContactRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest;
@@ -47,7 +49,7 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -83,7 +85,7 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -116,7 +118,7 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -150,7 +152,7 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -187,7 +189,7 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -249,7 +251,68 @@ class RunLifecycleSimulationServiceTest {
         properties.getRun().setDryRun(false);
         properties.getSimulation().setTerminateRate(0);
         properties.getSimulation().setRehireRateOfTerminated(0);
+        // Apagado aqui para que estos tests no pidan el catalogo; el que lo enciende trae su catalogo.
+        properties.getCostCenter().setEnabled(false);
         return properties;
+    }
+
+    // workforce-loader#5: con el reparto apagado por configuracion, el alta no llevaba centros de coste
+    // y employee.cost_center se quedaba vacia. Ahora los centros salen del catalogo.
+    @Test
+    void shouldSendACostCenterDistributionFromTheCatalogOnHireAndRehire() {
+        SyntheticEmployee employee = syntheticEmployee(new BigDecimal("75"));
+        EmployeeLifecycleScenario scenario = new EmployeeLifecycleScenario(
+                employee,
+                List.of(
+                        new EmployeeLifecycleEvent(LifecycleEventType.HIRE, LocalDate.of(2024, 1, 10)),
+                        new EmployeeLifecycleEvent(LifecycleEventType.TERMINATE, LocalDate.of(2024, 3, 1)),
+                        new EmployeeLifecycleEvent(LifecycleEventType.REHIRE, LocalDate.of(2024, 4, 1))
+                ),
+                resolvedHireData(new BigDecimal("75")),
+                resolvedHireData(new BigDecimal("60")),
+                "BAJA"
+        );
+
+        LoaderProperties properties = baseProperties();
+        properties.getCostCenter().setEnabled(true);
+        CapturingLifecycleClient client = new CapturingLifecycleClient(properties);
+        RunLifecycleSimulationService service = new RunLifecycleSimulationService(
+                properties,
+                new FixedSyntheticEmployeeGenerator(List.of(employee)),
+                new FixedScenarioGenerator(properties, List.of(scenario)),
+                client,
+                new CostCenterMutationGenerator(new FixedCatalogApiClient(properties, "CC_ADMIN", "CC_HR"), properties)
+        );
+
+        LoaderRunSummary summary = service.run();
+
+        assertThat(summary.hiresSuccess()).isEqualTo(1);
+        assertThat(summary.rehiresSuccess()).isEqualTo(1);
+        assertThat(client.hireRequests.getFirst().costCenterDistribution().items())
+                .isNotEmpty()
+                .allSatisfy(item -> assertThat(item.costCenterCode()).isIn("CC_ADMIN", "CC_HR"));
+        assertThat(client.hireRequests.getFirst().costCenterDistribution().items().stream()
+                .mapToInt(HireEmployeeRequest.CostCenterDistribution.Item::allocationPercentage).sum()).isEqualTo(100);
+        assertThat(client.rehireRequests.getFirst().costCenterDistribution().items())
+                .isNotEmpty()
+                .allSatisfy(item -> assertThat(item.costCenterCode()).isIn("CC_ADMIN", "CC_HR"));
+    }
+
+    private static final class FixedCatalogApiClient extends CatalogApiClient {
+
+        private final List<CatalogOption> options;
+
+        private FixedCatalogApiClient(LoaderProperties properties, String... codes) {
+            super(properties, WebClient.builder());
+            this.options = java.util.Arrays.stream(codes).map(code -> new CatalogOption(code, code)).toList();
+        }
+
+        @Override
+        public List<CatalogOption> getDirectOptionsForField(
+                String ruleSystemCode, String resourceCode, String fieldCode, String... fallbackEntityTypeCodes
+        ) {
+            return options;
+        }
     }
 
     private static final class FixedSyntheticEmployeeGenerator extends SyntheticEmployeeGenerator {
@@ -272,7 +335,7 @@ class RunLifecycleSimulationServiceTest {
         private final List<EmployeeLifecycleScenario> scenarios;
 
         private FixedScenarioGenerator(LoaderProperties properties, List<EmployeeLifecycleScenario> scenarios) {
-            super(properties, null, null, null, null, new CostCenterMutationGenerator(properties));
+            super(properties, null, null, null, null, new CostCenterMutationGenerator(null, properties));
             this.scenarios = scenarios;
         }
 

@@ -1,55 +1,76 @@
 package com.b4rrhh.workforceloader.application;
 
+import com.b4rrhh.workforceloader.infrastructure.api.CatalogApiClient;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CatalogOption;
 import com.b4rrhh.workforceloader.infrastructure.config.LoaderProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * Reparto entre centros de coste, en el alta y en los cambios posteriores.
+ *
+ * <p>Los centros salen del catalogo COST_CENTER, pedido al backend una vez por tanda: antes venian
+ * de una lista en application.yml que nadie rellenaba, asi que con mil empleados no habia ni una
+ * fila en employee.cost_center (workforce-loader#5). La forma del reparto no cambia: uno solo o
+ * dos, con los mismos cortes de siempre.
+ */
 @Component
 public class CostCenterMutationGenerator {
 
-    private final LoaderProperties properties;
+    private static final Logger log = LoggerFactory.getLogger(CostCenterMutationGenerator.class);
 
-    public CostCenterMutationGenerator(LoaderProperties properties) {
+    private static final String COST_CENTER_RESOURCE = "employee.cost_center";
+    private static final String COST_CENTER_FIELD = "costCenterCode";
+    private static final String COST_CENTER = "COST_CENTER";
+
+    private final CatalogApiClient catalogApiClient;
+    private final LoaderProperties properties;
+    private volatile List<CatalogOption> catalog;
+
+    public CostCenterMutationGenerator(CatalogApiClient catalogApiClient, LoaderProperties properties) {
+        this.catalogApiClient = catalogApiClient;
         this.properties = properties;
     }
 
-    public CostCenterReplaceEventPayload generate(EmployeeExecutionState state, Random random) {
+    public CostCenterReplaceEventPayload generate(EmployeeExecutionState state, LocalDate effectiveDate, Random random) {
         List<SimulationCostCenterAllocation> current = state.getCurrentCostCenterDistribution();
-        List<SimulationCostCenterAllocation> candidate = generateEvolvedDistribution(current, random);
+        List<SimulationCostCenterAllocation> candidate = generateEvolvedDistribution(current, effectiveDate, random);
 
         if (current != null && !current.isEmpty()) {
             for (int attempt = 0; attempt < 4; attempt++) {
                 if (!sameDistribution(candidate, current)) {
                     break;
                 }
-                candidate = generateEvolvedDistribution(current, random);
+                candidate = generateEvolvedDistribution(current, effectiveDate, random);
             }
         }
 
         return new CostCenterReplaceEventPayload(candidate);
     }
 
-    public List<SimulationCostCenterAllocation> generateDistribution(Random random) {
-        return generateEvolvedDistribution(null, random);
+    public List<SimulationCostCenterAllocation> generateDistribution(LocalDate effectiveDate, Random random) {
+        return generateEvolvedDistribution(null, effectiveDate, random);
     }
 
     private List<SimulationCostCenterAllocation> generateEvolvedDistribution(
             List<SimulationCostCenterAllocation> current,
+            LocalDate effectiveDate,
             Random random
     ) {
-        if (!properties.getCostCenter().isEnabled() || properties.getCostCenter().getItems().isEmpty()) {
+        if (!properties.getCostCenter().isEnabled()) {
             return List.of();
         }
 
-        List<String> availableCodes = properties.getCostCenter().getItems().stream()
-                .map(LoaderProperties.CostCenter.Item::getCostCenterCode)
-                .map(CostCenterMutationGenerator::normalizeCode)
-                .distinct()
-                .toList();
+        List<String> availableCodes = availableCodes(effectiveDate);
+        if (availableCodes.isEmpty()) {
+            return List.of();
+        }
 
         if (current == null || current.isEmpty()) {
             return buildInitialDistribution(availableCodes, random);
@@ -64,6 +85,42 @@ public class CostCenterMutationGenerator {
         }
 
         return buildInitialDistribution(availableCodes, random);
+    }
+
+    /**
+     * Centros vigentes en la fecha. Si ninguno lo esta, se usa el catalogo entero y se avisa, por
+     * el mismo motivo que en HireReferenceDataResolver: mejor que lo rechace el backend y quede en
+     * el informe que abortar la tanda por un hueco de catalogo.
+     */
+    private List<String> availableCodes(LocalDate effectiveDate) {
+        List<CatalogOption> options = catalog();
+        List<CatalogOption> inForce = options.stream()
+                .filter(option -> option.isVigenteEn(effectiveDate))
+                .toList();
+        if (inForce.isEmpty() && !options.isEmpty()) {
+            log.warn("Ningun centro de coste vigente el {} entre {} disponibles. Se usa el catalogo sin filtrar.",
+                    effectiveDate, options.size());
+            inForce = options;
+        }
+        return inForce.stream()
+                .map(CatalogOption::code)
+                .map(CostCenterMutationGenerator::normalizeCode)
+                .distinct()
+                .toList();
+    }
+
+    private List<CatalogOption> catalog() {
+        List<CatalogOption> loaded = catalog;
+        if (loaded == null) {
+            loaded = catalogApiClient.getDirectOptionsForField(
+                    normalizeCode(properties.getDefaults().getRuleSystemCode()),
+                    COST_CENTER_RESOURCE,
+                    COST_CENTER_FIELD,
+                    COST_CENTER
+            );
+            catalog = loaded;
+        }
+        return loaded;
     }
 
     private List<SimulationCostCenterAllocation> buildInitialDistribution(List<String> availableCodes, Random random) {

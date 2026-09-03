@@ -170,7 +170,8 @@ public class EmployeeLifecycleScenarioGenerator {
                     if (!state.isActive() || !properties.getCostCenter().isEnabled()) {
                         continue;
                     }
-                    CostCenterReplaceEventPayload payload = costCenterMutationGenerator.generate(state, random);
+                    CostCenterReplaceEventPayload payload =
+                            costCenterMutationGenerator.generate(state, event.effectiveDate(), random);
                     state.setCurrentCostCenterDistribution(payload.allocations());
                     state.setLastEffectiveDate(event.effectiveDate());
                     planned.add(new EmployeeLifecycleEvent(event.eventType(), event.effectiveDate(), payload));

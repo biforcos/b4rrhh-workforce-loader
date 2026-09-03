@@ -57,9 +57,11 @@ loader:
     labor-classification-replace-rate: 0.25
     cost-center-replace-rate: 0.20
 
+  # Los centros salen del catalogo COST_CENTER del sistema de reglas; aqui solo
+  # se apaga el reparto. Antes habia una lista de centros que nadie rellenaba y
+  # con ella vacia no se generaba ni una fila (workforce-loader#5).
   cost-center:
-    enabled: false
-    items: []
+    enabled: true
 
   filters:
     agreement-code: 99002405011982

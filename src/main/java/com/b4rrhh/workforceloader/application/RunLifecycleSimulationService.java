@@ -411,7 +411,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                         normalizeCode(resolvedHireData.agreementCategoryCode())
                 ),
                 buildHireWorkingTime(employee, resolvedHireData),
-                buildHireCostCenterDistribution(employee)
+                buildHireCostCenterDistribution(employee, event.effectiveDate())
         );
     }
 
@@ -441,7 +441,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                         normalizeCode(resolvedHireData.agreementCategoryCode())
                 ),
                 buildRehireWorkingTime(employee, resolvedHireData),
-                buildRehireCostCenterDistribution(employee)
+                buildRehireCostCenterDistribution(employee, event.effectiveDate())
         );
     }
 
@@ -832,13 +832,16 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         }
     }
 
-    private HireEmployeeRequest.CostCenterDistribution buildHireCostCenterDistribution(SyntheticEmployee employee) {
+    private HireEmployeeRequest.CostCenterDistribution buildHireCostCenterDistribution(
+            SyntheticEmployee employee,
+            LocalDate hireDate
+    ) {
         if (!properties.getCostCenter().isEnabled()) {
             return null;
         }
 
         Random random = deterministicEmployeeRandom(employee, 11);
-        List<HireEmployeeRequest.CostCenterDistribution.Item> items = costCenterMutationGenerator.generateDistribution(random).stream()
+        List<HireEmployeeRequest.CostCenterDistribution.Item> items = costCenterMutationGenerator.generateDistribution(hireDate, random).stream()
                 .map(item -> new HireEmployeeRequest.CostCenterDistribution.Item(
                 normalizeCode(item.costCenterCode()),
                 item.allocationPercentage()
@@ -848,13 +851,16 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         return new HireEmployeeRequest.CostCenterDistribution(items);
     }
 
-    private RehireEmployeeRequest.CostCenterDistribution buildRehireCostCenterDistribution(SyntheticEmployee employee) {
+    private RehireEmployeeRequest.CostCenterDistribution buildRehireCostCenterDistribution(
+            SyntheticEmployee employee,
+            LocalDate rehireDate
+    ) {
         if (!properties.getCostCenter().isEnabled()) {
             return null;
         }
 
         Random random = deterministicEmployeeRandom(employee, 23);
-        List<RehireEmployeeRequest.CostCenterDistribution.Item> items = costCenterMutationGenerator.generateDistribution(random).stream()
+        List<RehireEmployeeRequest.CostCenterDistribution.Item> items = costCenterMutationGenerator.generateDistribution(rehireDate, random).stream()
                 .map(item -> new RehireEmployeeRequest.CostCenterDistribution.Item(
                 normalizeCode(item.costCenterCode()),
                 item.allocationPercentage()
@@ -886,20 +892,6 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             throw new IllegalArgumentException(
                     "Invalid simulation configuration: rehire min days must be <= max days"
             );
-        }
-
-        LoaderProperties.CostCenter costCenter = properties.getCostCenter();
-        if (costCenter.isEnabled()) {
-            if (costCenter.getItems() == null || costCenter.getItems().isEmpty()) {
-                throw new IllegalArgumentException("Invalid cost center configuration: items must not be empty when loader.cost-center.enabled=true");
-            }
-            int allocationSum = costCenter.getItems().stream()
-                    .map(LoaderProperties.CostCenter.Item::getAllocationPercentage)
-                    .mapToInt(Integer::intValue)
-                    .sum();
-            if (allocationSum > 100) {
-                throw new IllegalArgumentException("Invalid cost center configuration: total allocationPercentage must be <= 100");
-            }
         }
     }
 
