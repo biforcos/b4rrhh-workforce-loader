@@ -21,8 +21,10 @@ public class HireReferenceDataResolver {
     private static final String WORK_CENTER_RESOURCE = "employee.work_center";
     private static final String CONTRACT_RESOURCE = "employee.contract";
     private static final String LABOR_CLASSIFICATION_RESOURCE = "employee.labor_classification";
+    private static final String ABSENCE_RESOURCE = "employee.absence";
 
     private static final String COMPANY_FIELD = "companyCode";
+    private static final String ABSENCE_TYPE_FIELD = "absenceTypeCode";
     private static final String WORK_CENTER_FIELD = "workCenterCode";
     private static final String ENTRY_REASON_FIELD = "entryReasonCode";
     private static final String EXIT_REASON_FIELD = "exitReasonCode";
@@ -38,6 +40,7 @@ public class HireReferenceDataResolver {
     private static final String LEGACY_EXIT_REASON = "EXIT_REASON";
     private static final String AGREEMENT = "AGREEMENT";
     private static final String CONTRACT = "CONTRACT";
+    private static final String EMPLOYEE_ABSENCE_TYPE = "EMPLOYEE_ABSENCE_TYPE";
 
     private final CatalogApiClient catalogApiClient;
     private final LoaderProperties.Filters filters;
@@ -107,8 +110,28 @@ public class HireReferenceDataResolver {
                 entryReasons,
                 exitReasons,
                 applyAgreementFilter(agreementsWithCategories),
-                applyContractFilter(contractTypesWithSubtypes)
+                applyContractFilter(contractTypesWithSubtypes),
+                resolveAbsenceTypeOptions(normalizedRuleSystemCode)
         );
+    }
+
+    /**
+     * A diferencia del resto de catalogos, este puede faltar sin que sea un error: un sistema de
+     * reglas sin tipos de ausencia (FRA y PRT hoy) simplemente no genera ausencias
+     * (workforce-loader#5).
+     */
+    private List<CatalogOption> resolveAbsenceTypeOptions(String ruleSystemCode) {
+        try {
+            return catalogApiClient.getDirectOptionsForField(
+                    ruleSystemCode,
+                    ABSENCE_RESOURCE,
+                    ABSENCE_TYPE_FIELD,
+                    EMPLOYEE_ABSENCE_TYPE
+            );
+        } catch (IllegalStateException ex) {
+            log.warn("Sin tipos de ausencia en el catalogo de {}: no se generan ausencias.", ruleSystemCode);
+            return List.of();
+        }
     }
 
     private List<AgreementWithCategories> applyAgreementFilter(List<AgreementWithCategories> source) {

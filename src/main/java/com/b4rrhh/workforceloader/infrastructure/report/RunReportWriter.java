@@ -35,6 +35,10 @@ public class RunReportWriter {
             summary.costCenterReplacementsRequested(),
             summary.costCenterReplacementsSuccess(),
             summary.costCenterReplacementsFailed());
+        log.info("Absences: requested={} success={} failed={}",
+            summary.absencesRequested(),
+            summary.absencesSuccess(),
+            summary.absencesFailed());
         log.info("Personal data (addresses, contacts, identifiers): requested={} success={} failed={}",
             summary.personalDataRequested(),
             summary.personalDataSuccess(),
@@ -59,6 +63,7 @@ public class RunReportWriter {
             + summary.contractReplacementsFailed()
             + summary.laborClassificationReplacementsFailed()
             + summary.costCenterReplacementsFailed()
+            + summary.absencesFailed()
             + summary.personalDataFailed() == 0) {
             log.info("All lifecycle events completed successfully");
         } else {

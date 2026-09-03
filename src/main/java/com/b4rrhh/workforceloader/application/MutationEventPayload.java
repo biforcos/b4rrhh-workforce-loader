@@ -4,5 +4,6 @@ public sealed interface MutationEventPayload permits
         WorkCenterChangeEventPayload,
         ContractReplaceEventPayload,
         LaborClassificationReplaceEventPayload,
-        CostCenterReplaceEventPayload {
+        CostCenterReplaceEventPayload,
+        AbsenceEventPayload {
 }

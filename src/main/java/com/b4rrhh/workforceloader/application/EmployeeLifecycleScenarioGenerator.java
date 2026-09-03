@@ -19,6 +19,7 @@ public class EmployeeLifecycleScenarioGenerator {
     private final ContractMutationGenerator contractMutationGenerator;
     private final LaborClassificationMutationGenerator laborClassificationMutationGenerator;
     private final CostCenterMutationGenerator costCenterMutationGenerator;
+    private final AbsenceScenarioGenerator absenceScenarioGenerator;
 
     public EmployeeLifecycleScenarioGenerator(
             LoaderProperties properties,
@@ -26,7 +27,8 @@ public class EmployeeLifecycleScenarioGenerator {
             WorkCenterMutationGenerator workCenterMutationGenerator,
             ContractMutationGenerator contractMutationGenerator,
             LaborClassificationMutationGenerator laborClassificationMutationGenerator,
-            CostCenterMutationGenerator costCenterMutationGenerator
+            CostCenterMutationGenerator costCenterMutationGenerator,
+            AbsenceScenarioGenerator absenceScenarioGenerator
     ) {
         this.properties = properties;
         this.hireReferenceDataResolver = hireReferenceDataResolver;
@@ -34,11 +36,17 @@ public class EmployeeLifecycleScenarioGenerator {
         this.contractMutationGenerator = contractMutationGenerator;
         this.laborClassificationMutationGenerator = laborClassificationMutationGenerator;
         this.costCenterMutationGenerator = costCenterMutationGenerator;
+        this.absenceScenarioGenerator = absenceScenarioGenerator;
     }
 
     public List<EmployeeLifecycleScenario> generate(List<SyntheticEmployee> employees) {
         LoaderProperties.Simulation simulation = properties.getSimulation();
         Random random = new Random(properties.getGeneration().getSeed() + 1);
+
+        // El «hoy» de la simulacion, sin mirar el reloj para que la misma semilla de lo mismo
+        // cualquier dia: hasta donde llega el ultimo cese posible.
+        LocalDate simulationHorizon = properties.getGeneration().getHireDateTo()
+                .plusDays(simulation.getTerminationMaxDaysAfterHire());
 
         String ruleSystemCode = normalizeCode(properties.getDefaults().getRuleSystemCode());
         ResolvedHireReferencePools referencePools = hireReferenceDataResolver.preloadPools(ruleSystemCode);
@@ -79,6 +87,8 @@ public class EmployeeLifecycleScenarioGenerator {
 
             List<ActiveWindow> activeWindows = buildActiveWindows(employee.hireDate(), terminationDate, rehireDate);
             addMutationEvents(events, activeWindows, simulation, random);
+            events.addAll(absenceScenarioGenerator.generate(
+                    activeWindows, simulationHorizon, referencePools.absenceTypes(), random));
 
             events.sort(Comparator.comparing(EmployeeLifecycleEvent::effectiveDate));
                 List<EmployeeLifecycleEvent> plannedEvents = addMutationPayloads(
@@ -175,6 +185,14 @@ public class EmployeeLifecycleScenarioGenerator {
                     state.setCurrentCostCenterDistribution(payload.allocations());
                     state.setLastEffectiveDate(event.effectiveDate());
                     planned.add(new EmployeeLifecycleEvent(event.eventType(), event.effectiveDate(), payload));
+                }
+                case ABSENCE -> {
+                    // Ya viene con su carga: la planifico el generador de ausencias, dentro de un
+                    // periodo de presencia. No toca el estado: nada posterior depende de ella.
+                    if (!state.isActive()) {
+                        continue;
+                    }
+                    planned.add(event);
                 }
             }
         }

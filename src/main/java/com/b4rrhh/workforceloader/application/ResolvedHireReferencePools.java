@@ -10,6 +10,8 @@ public record ResolvedHireReferencePools(
         List<CatalogOption> entryReasons,
         List<CatalogOption> exitReasons,
         List<AgreementWithCategories> agreementsWithCategories,
-        List<ContractTypeWithSubtypes> contractTypesWithSubtypes
+        List<ContractTypeWithSubtypes> contractTypesWithSubtypes,
+        /** Puede venir vacia: un sistema de reglas sin tipos de ausencia simplemente no las genera. */
+        List<CatalogOption> absenceTypes
 ) {
 }

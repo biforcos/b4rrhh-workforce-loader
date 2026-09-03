@@ -170,6 +170,33 @@ class HireReferenceDataResolverTest {
         assertEquals("MAD", resolvedHireData.workCenterCode());
       }
 
+    // workforce-loader#5: los tipos de ausencia se precargan con el resto; si el sistema de reglas
+    // no tiene ninguno, no es un error, es que no habra ausencias.
+    @Test
+    void preloadPoolsLoadsAbsenceTypesWhenTheCatalogHasThemAndToleratesTheirAbsence() throws Exception {
+        server = HttpServer.create(new InetSocketAddress(0), 0);
+        registerWorkCentersByCompanyContext();
+        Map<String, String> options = new HashMap<>(Map.of(
+                "COMPANY", directOptions("ES02", "Spain Company 02"),
+                "WORK_CENTER", directOptions("MAD", "Madrid HQ"),
+                "EMPLOYEE_PRESENCE_ENTRY_REASON", directOptions("HIRING", "Hiring"),
+                "EMPLOYEE_PRESENCE_EXIT_REASON", directOptions("TERMINATION", "Termination"),
+                "AGREEMENT", directOptions("AGR01", "General Agreement"),
+                "CONTRACT", directOptions("PERM", "Permanent")
+        ));
+        registerCatalogOptionsContext(options);
+        registerAgreementCategoriesContext();
+        registerContractSubtypesContext();
+        server.start();
+
+        HireReferenceDataResolver resolver = newResolver();
+
+        assertEquals(List.of(), resolver.preloadPools("ESP").absenceTypes());
+
+        options.put("EMPLOYEE_ABSENCE_TYPE", directOptions("VACATION", "Vacaciones"));
+        assertEquals(List.of(new CatalogOption("VACATION", "Vacaciones")), resolver.preloadPools("ESP").absenceTypes());
+    }
+
     private HireReferenceDataResolver newResolver() {
         LoaderProperties properties = new LoaderProperties();
         properties.getBackend().setBaseUrl("http://localhost:" + server.getAddress().getPort());

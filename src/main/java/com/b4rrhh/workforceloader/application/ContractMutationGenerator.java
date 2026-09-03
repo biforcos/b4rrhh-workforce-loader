@@ -64,7 +64,8 @@ public class ContractMutationGenerator {
                 pools.entryReasons(),
                 pools.exitReasons(),
                 pools.agreementsWithCategories(),
-                vigentes
+                vigentes,
+                pools.absenceTypes()
         );
     }
 

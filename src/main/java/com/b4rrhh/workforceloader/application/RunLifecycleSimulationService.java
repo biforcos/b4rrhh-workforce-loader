@@ -18,6 +18,7 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceLaborClassificat
 import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceWorkCenterFromDateRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeResponse;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.UpsertAbsenceRequest;
 import com.b4rrhh.workforceloader.infrastructure.config.LoaderProperties;
 import com.b4rrhh.workforceloader.infrastructure.generator.SyntheticEmployeeGenerator;
 import org.springframework.stereotype.Service;
@@ -87,6 +88,10 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         int costCenterReplacementsRequested = 0;
         int costCenterReplacementsSuccess = 0;
         int costCenterReplacementsFailed = 0;
+
+        int absencesRequested = 0;
+        int absencesSuccess = 0;
+        int absencesFailed = 0;
 
         PersonalDataTally personalData = new PersonalDataTally();
 
@@ -200,6 +205,17 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                             scenarioCanContinue = false;
                         }
                     }
+                    case ABSENCE -> {
+                        // Una ausencia rechazada se anota y el escenario sigue: ningun evento
+                        // posterior depende de ella (workforce-loader#5).
+                        absencesRequested++;
+                        outcome = executePlannedAbsence(employee, event, executionState);
+                        if (outcome.success()) {
+                            absencesSuccess++;
+                        } else {
+                            absencesFailed++;
+                        }
+                    }
                 }
 
                 results.add(new LifecycleEventExecutionResult(
@@ -242,6 +258,9 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                 costCenterReplacementsRequested,
                 costCenterReplacementsSuccess,
                 costCenterReplacementsFailed,
+                absencesRequested,
+                absencesSuccess,
+                absencesFailed,
                 personalData.requested,
                 personalData.success,
                 personalData.failed,
@@ -611,6 +630,43 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             state.setLastEffectiveDate(event.effectiveDate());
         }
         return outcome;
+    }
+
+    private EventOutcome executePlannedAbsence(
+            SyntheticEmployee employee,
+            EmployeeLifecycleEvent event,
+            EmployeeExecutionState state
+    ) {
+        if (!state.isActive()) {
+            return EventOutcome.failure("Cannot register absence on inactive employee state");
+        }
+        if (!(event.payload() instanceof AbsenceEventPayload payload)) {
+            return EventOutcome.failure("Missing AbsenceEventPayload for ABSENCE");
+        }
+
+        String absenceTypeCode = normalizeCode(payload.absenceTypeCode());
+        UpsertAbsenceRequest request = new UpsertAbsenceRequest(payload.endDate(), null);
+
+        if (properties.getRun().isDryRun()) {
+            return EventOutcome.success("DRY-RUN payload -> " + summarizeEmployee(employee)
+                    + ", absenceTypeCode=" + absenceTypeCode
+                    + ", startDate=" + event.effectiveDate()
+                    + ", endDate=" + request.endDate());
+        }
+
+        try {
+            b4rrhhLifecycleClient.upsertAbsence(
+                    normalizeCode(employee.ruleSystemCode()),
+                    normalizeCode(employee.employeeTypeCode()),
+                    employee.employeeNumber(),
+                    absenceTypeCode,
+                    event.effectiveDate(),
+                    request
+            );
+            return EventOutcome.success("Absence upsert call completed: " + absenceTypeCode);
+        } catch (Exception ex) {
+            return EventOutcome.failure(ex.getMessage());
+        }
     }
 
     private void applyInitialHireState(

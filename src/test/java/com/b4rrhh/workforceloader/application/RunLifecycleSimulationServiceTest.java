@@ -15,6 +15,7 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeResponse;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.UpsertAbsenceRequest;
 import com.b4rrhh.workforceloader.infrastructure.config.LoaderProperties;
 import com.b4rrhh.workforceloader.infrastructure.generator.SyntheticEmployeeGenerator;
 import org.junit.jupiter.api.Test;
@@ -298,6 +299,87 @@ class RunLifecycleSimulationServiceTest {
                 .allSatisfy(item -> assertThat(item.costCenterCode()).isIn("CC_ADMIN", "CC_HR"));
     }
 
+    // workforce-loader#5: mil empleados y ni una ausencia. Cada ausencia planificada va por PUT con su
+    // tipo y su inicio en la ruta y el fin en el cuerpo; una abierta va sin fin.
+    @Test
+    void shouldUpsertEachPlannedAbsenceWithItsTypeStartAndEnd() {
+        SyntheticEmployee employee = syntheticEmployee(new BigDecimal("75"));
+        EmployeeLifecycleScenario scenario = new EmployeeLifecycleScenario(
+                employee,
+                List.of(
+                        new EmployeeLifecycleEvent(LifecycleEventType.HIRE, LocalDate.of(2024, 1, 10)),
+                        new EmployeeLifecycleEvent(LifecycleEventType.ABSENCE, LocalDate.of(2024, 8, 5),
+                                new AbsenceEventPayload("vacation", LocalDate.of(2024, 8, 16))),
+                        new EmployeeLifecycleEvent(LifecycleEventType.ABSENCE, LocalDate.of(2024, 10, 1),
+                                new AbsenceEventPayload("IT_COMMON", null))
+                ),
+                resolvedHireData(new BigDecimal("75")),
+                null,
+                "BAJA"
+        );
+
+        CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
+        RunLifecycleSimulationService service = new RunLifecycleSimulationService(
+                baseProperties(),
+                new FixedSyntheticEmployeeGenerator(List.of(employee)),
+                new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
+                client,
+                new CostCenterMutationGenerator(null, baseProperties())
+        );
+
+        LoaderRunSummary summary = service.run();
+
+        assertThat(summary.absencesRequested()).isEqualTo(2);
+        assertThat(summary.absencesSuccess()).isEqualTo(2);
+        assertThat(client.absences).containsExactly(
+                new CapturedAbsence("MAS000001", "VACATION", LocalDate.of(2024, 8, 5), new UpsertAbsenceRequest(LocalDate.of(2024, 8, 16), null)),
+                new CapturedAbsence("MAS000001", "IT_COMMON", LocalDate.of(2024, 10, 1), new UpsertAbsenceRequest(null, null))
+        );
+        assertThat(summary.results()).extracting(result -> result.eventType())
+                .containsExactly("HIRE", "ABSENCE", "ABSENCE");
+    }
+
+    @Test
+    void shouldRecordARejectedAbsenceWithoutAbortingTheScenario() {
+        SyntheticEmployee employee = syntheticEmployee(new BigDecimal("75"));
+        EmployeeLifecycleScenario scenario = new EmployeeLifecycleScenario(
+                employee,
+                List.of(
+                        new EmployeeLifecycleEvent(LifecycleEventType.HIRE, LocalDate.of(2024, 1, 10)),
+                        new EmployeeLifecycleEvent(LifecycleEventType.ABSENCE, LocalDate.of(2024, 2, 5),
+                                new AbsenceEventPayload("VACATION", LocalDate.of(2024, 2, 9))),
+                        new EmployeeLifecycleEvent(LifecycleEventType.TERMINATE, LocalDate.of(2024, 3, 1))
+                ),
+                resolvedHireData(new BigDecimal("75")),
+                null,
+                "BAJA"
+        );
+
+        CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
+        client.rejectAbsences = true;
+        RunLifecycleSimulationService service = new RunLifecycleSimulationService(
+                baseProperties(),
+                new FixedSyntheticEmployeeGenerator(List.of(employee)),
+                new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
+                client,
+                new CostCenterMutationGenerator(null, baseProperties())
+        );
+
+        LoaderRunSummary summary = service.run();
+
+        assertThat(summary.absencesRequested()).isEqualTo(1);
+        assertThat(summary.absencesFailed()).isEqualTo(1);
+        assertThat(summary.terminationsSuccess()).isEqualTo(1);
+        assertThat(summary.results()).filteredOn(result -> !result.success()).singleElement()
+                .satisfies(result -> {
+                    assertThat(result.eventType()).isEqualTo("ABSENCE");
+                    assertThat(result.message()).isEqualTo("absence rejected");
+                });
+    }
+
+    private record CapturedAbsence(String employeeNumber, String absenceTypeCode, LocalDate startDate, UpsertAbsenceRequest request) {
+    }
+
     private static final class FixedCatalogApiClient extends CatalogApiClient {
 
         private final List<CatalogOption> options;
@@ -335,7 +417,8 @@ class RunLifecycleSimulationServiceTest {
         private final List<EmployeeLifecycleScenario> scenarios;
 
         private FixedScenarioGenerator(LoaderProperties properties, List<EmployeeLifecycleScenario> scenarios) {
-            super(properties, null, null, null, null, new CostCenterMutationGenerator(null, properties));
+            super(properties, null, null, null, null, new CostCenterMutationGenerator(null, properties),
+                    new AbsenceScenarioGenerator());
             this.scenarios = scenarios;
         }
 
@@ -354,10 +437,27 @@ class RunLifecycleSimulationServiceTest {
         private final List<CreateContactRequest> contactRequests = new java.util.ArrayList<>();
         private final List<CreateIdentifierRequest> identifierRequests = new java.util.ArrayList<>();
         private final List<String> personalDataEmployeeNumbers = new java.util.ArrayList<>();
+        private final List<CapturedAbsence> absences = new java.util.ArrayList<>();
         private boolean rejectContacts;
+        private boolean rejectAbsences;
 
         private CapturingLifecycleClient(LoaderProperties properties) {
             super(properties, WebClient.builder());
+        }
+
+        @Override
+        public void upsertAbsence(
+                String ruleSystemCode,
+                String employeeTypeCode,
+                String employeeNumber,
+                String absenceTypeCode,
+                LocalDate startDate,
+                UpsertAbsenceRequest request
+        ) {
+            if (rejectAbsences) {
+                throw new RuntimeException("absence rejected");
+            }
+            absences.add(new CapturedAbsence(employeeNumber, absenceTypeCode, startDate, request));
         }
 
         @Override

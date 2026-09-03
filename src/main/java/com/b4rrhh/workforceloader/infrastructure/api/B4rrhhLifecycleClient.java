@@ -14,11 +14,14 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceLaborClassificat
 import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceWorkCenterFromDateRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeResponse;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.UpsertAbsenceRequest;
 import com.b4rrhh.workforceloader.infrastructure.config.LoaderProperties;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+
+import java.time.LocalDate;
 
 @Component
 public class B4rrhhLifecycleClient {
@@ -266,9 +269,41 @@ public class B4rrhhLifecycleClient {
             );
             }
 
+            /** PUT en modo dia: el tipo y el inicio identifican la ausencia; el cuerpo trae el fin, si lo hay. */
+            public void upsertAbsence(
+                String ruleSystemCode,
+                String employeeTypeCode,
+                String employeeNumber,
+                String absenceTypeCode,
+                LocalDate startDate,
+                UpsertAbsenceRequest request
+            ) {
+            executeWithoutResponse(
+                "absence upsert",
+                webClient.put(),
+                "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/absences/{absenceTypeCode}/{startDate}",
+                request,
+                ruleSystemCode,
+                employeeTypeCode,
+                employeeNumber,
+                absenceTypeCode,
+                startDate
+            );
+            }
+
             private void executePostWithoutResponse(String operation, String uri, Object body, Object... uriVariables) {
+            executeWithoutResponse(operation, webClient.post(), uri, body, uriVariables);
+            }
+
+            private void executeWithoutResponse(
+                String operation,
+                WebClient.RequestBodyUriSpec request,
+                String uri,
+                Object body,
+                Object... uriVariables
+            ) {
             try {
-                webClient.post()
+                request
                     .uri(uri, uriVariables)
                     .bodyValue(body)
                     .retrieve()
