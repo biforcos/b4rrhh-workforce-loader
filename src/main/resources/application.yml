@@ -20,6 +20,14 @@ loader:
 
   defaults:
     rule-system-code: ESP
+    # El catalogo EMPLOYEE_TYPE de ESP tiene dos codigos, INTERNAL y EXTERNAL,
+    # y el loader usa solo el primero a proposito. EXTERNAL existe para que el
+    # mecanismo (una de las cuatro dimensiones de ambito de concept_assignment)
+    # tenga con que probarse, pero nadie le ha dado significado todavia: no hay
+    # ninguna asignacion de nomina acotada a el, ni comportamiento asociado
+    # (backend#38). Dar de alta gente como EXTERNAL seria inventar que quiere
+    # decir. Cuando backend#38 lo defina, esto pasa a ser un reparto
+    # (workforce-loader#5).
     employee-type-code: INTERNAL
 
   generation:
@@ -64,10 +72,23 @@ loader:
     enabled: true
 
   filters:
+    # Un solo convenio a proposito, con tres en el catalogo AGREEMENT de ESP.
+    # Los otros dos, AGR_OFFICE y AGR_TECH, son los de la semilla base: tienen
+    # categorias y perfil, pero ninguna asignacion de conceptos de nomina
+    # (payroll_engine.concept_assignment solo conoce el 99002405011982). Un
+    # empleado bajo ellos se da de alta bien y no tiene nomina calculable, y
+    # la demo calcula nominas. Si algun dia se les siembra su grafo, se quita
+    # este filtro y el loader los reparte solo (workforce-loader#5).
     agreement-code: 99002405011982
     agreement-category-codes:
       - 99002405-G1
       - 99002405-G2
       - 99002405-G3
+    # Y por esto contract_subtype_code es siempre 01: los diez tipos de contrato
+    # legales (100, 108, ..., 422) solo tienen relacionado ese subtipo. Los
+    # otros tres del catalogo (FT1, PT1, INT) cuelgan de IND y TMP, los tipos
+    # genericos de la semilla base, que este filtro deja fuera porque no son
+    # codigos de contrato reales. Es cosa del catalogo, no del loader
+    # (workforce-loader#5).
     numeric-contract-types-only: true
     require-contract-subtype: true
