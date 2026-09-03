@@ -23,7 +23,7 @@ loader:
     employee-type-code: INTERNAL
 
   generation:
-    count: 250
+    count: 1000
     seed: 12345
     employee-number-prefix: EMP
     employee-number-padding: 6
