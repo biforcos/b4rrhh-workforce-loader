@@ -14,6 +14,34 @@ loader:
     auth-token: ${LOADER_AUTH_TOKEN:}
     hire-path: /employees/hire
 
+    # Con quien tiene que estar hablando esta corrida. Sin esto no arranca, y
+    # es a proposito: un token bueno del backend equivocado devuelve 200 igual
+    # que el bueno del correcto, asi que la comprobacion no puede ser "me han
+    # autenticado" sino "esta es la base a la que iba a escribir"
+    # (workforce-loader#8).
+    #
+    # No hay valor por defecto porque no lo hay: solo la corrida sabe cual era
+    # la respuesta buena. Se pregunta al backend arrancado con:
+    #   GET http://localhost:8080/api/system/target   (token de ADMIN)
+    #
+    # Tambien por entorno, sin tocar este fichero:
+    #   LOADER_BACKEND_EXPECTED_DATABASE, LOADER_BACKEND_EXPECTED_EMPLOYEES,
+    #   LOADER_BACKEND_EXPECTED_SCHEMA_VERSION
+    expected:
+      # host:puerto/nombre, por ejemplo localhost:5432/b4rrhh_wl7. Con host y
+      # puerto, no solo el nombre: la base de la demo y la de desarrollo se
+      # llaman las dos b4rrhh, asi que el nombre suelto no distingue el caso
+      # que mas dano hace.
+      database:
+      # Los que tiene que haber ya. Una siembra desde cero espera 0.
+      employees:
+      # Opcional. Cuando se declara, se comprueba.
+      schema-version:
+
+    # No basta comprobarlo al arrancar: el backend del 8080 se puede sustituir
+    # a mitad de corrida.
+    recheck-every-writes: 200
+
   run:
     mode: LIFECYCLE
     dry-run: false

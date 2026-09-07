@@ -112,6 +112,18 @@ public class LoaderProperties {
         @NotBlank
         private String hirePath = "/employees/hire";
 
+        @Valid
+        @NotNull
+        private Expected expected = new Expected();
+
+        /**
+         * Cada cuantas escrituras se vuelve a preguntar al backend quien es.
+         * No basta comprobarlo al arrancar: el backend del otro lado se puede
+         * sustituir a mitad de corrida (workforce-loader#8).
+         */
+        @Min(1)
+        private int recheckEveryWrites = 200;
+
         public String getBaseUrl() {
             return baseUrl;
         }
@@ -134,6 +146,70 @@ public class LoaderProperties {
 
         public void setHirePath(String hirePath) {
             this.hirePath = hirePath;
+        }
+
+        public Expected getExpected() {
+            return expected;
+        }
+
+        public void setExpected(Expected expected) {
+            this.expected = expected;
+        }
+
+        public int getRecheckEveryWrites() {
+            return recheckEveryWrites;
+        }
+
+        public void setRecheckEveryWrites(int recheckEveryWrites) {
+            this.recheckEveryWrites = recheckEveryWrites;
+        }
+    }
+
+    /**
+     * Con quien tiene que estar hablando esta corrida, dicho antes de empezar.
+     *
+     * Sin esto no hay nada que comprobar: el backend puede contestar la verdad
+     * sobre si mismo, pero solo la corrida sabe cual era la respuesta buena. Por
+     * eso database y employees no tienen valor por defecto y su ausencia para la
+     * corrida (workforce-loader#8).
+     *
+     * - database: host:puerto/nombre, por ejemplo localhost:5432/b4rrhh_wl7. Con
+     *   host y puerto, no solo el nombre: la base de la demo y la de desarrollo
+     *   se llaman las dos b4rrhh.
+     * - employees: los que tiene que haber ya. Una siembra desde cero espera 0;
+     *   una corrida incremental, otra cosa.
+     * - schemaVersion: opcional. Cuando se declara, se comprueba.
+     */
+    public static class Expected {
+
+        private String database;
+
+        private Long employees;
+
+        private String schemaVersion;
+
+        public String getDatabase() {
+            return database;
+        }
+
+        public void setDatabase(String database) {
+            this.database = database;
+        }
+
+        public Long getEmployees() {
+            return employees;
+        }
+
+        public void setEmployees(Long employees) {
+            this.employees = employees;
+        }
+
+        public String getSchemaVersion() {
+            return schemaVersion;
+        }
+
+        public void setSchemaVersion(String schemaVersion) {
+            this.schemaVersion = schemaVersion;
         }
     }
 
