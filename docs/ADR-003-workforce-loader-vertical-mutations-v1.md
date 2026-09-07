@@ -69,6 +69,15 @@ Each vertical mutation must use its canonical public operation:
 - labor classification change via replace-from-date
 - cost center change via replace-from-date
 
+> **Nota (workforce-loader#7).** Las tres referencias a `replace-from-date` de este
+> principio ya no valen. El ADR-057 del backend retiro `replace-from-date` como
+> modelo: un cambio de vertical no es una sustitucion, es un **alta con su fecha de
+> inicio cuya unica consecuencia automatica es cerrar la ocurrencia anterior**. El
+> loader era el ultimo cliente de los cuatro endpoints deprecados y ya no llama a
+> ninguno; la operacion canonica de cada vertical es hoy su `POST` de alta. El
+> principio en si —cada mutacion por su operacion canonica— sigue en pie: lo que
+> cambio es cual es.
+
 ### 4. No generic framework yet
 The loader should remain explicit and readable.
 It must not introduce a metadata-driven mutation engine at this stage.
