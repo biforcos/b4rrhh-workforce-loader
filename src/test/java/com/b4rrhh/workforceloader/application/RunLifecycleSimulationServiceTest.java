@@ -8,7 +8,11 @@ import com.b4rrhh.workforceloader.infrastructure.api.CatalogApiClient;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CatalogOption;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateAddressRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContactRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContractRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateCostCenterDistributionRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateLaborClassificationRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkCenterRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
@@ -377,6 +381,102 @@ class RunLifecycleSimulationServiceTest {
                 });
     }
 
+    // workforce-loader#7: las cuatro verticales dejan de pedir replace-from-date. Cada cambio
+    // es un alta con su fecha de inicio, y va sin fin: la ocurrencia que desplaza tambien esta
+    // abierta, porque el loader solo muta dentro de una presencia viva.
+    @Test
+    void shouldAddEachVerticalChangeWithItsStartDateAndNoEndDate() {
+        SyntheticEmployee employee = syntheticEmployee(new BigDecimal("75"));
+        EmployeeLifecycleScenario scenario = new EmployeeLifecycleScenario(
+                employee,
+                List.of(
+                        new EmployeeLifecycleEvent(LifecycleEventType.HIRE, LocalDate.of(2024, 1, 10)),
+                        new EmployeeLifecycleEvent(LifecycleEventType.CHANGE_WORK_CENTER, LocalDate.of(2024, 2, 1),
+                                new WorkCenterChangeEventPayload("wc_norte")),
+                        new EmployeeLifecycleEvent(LifecycleEventType.REPLACE_CONTRACT, LocalDate.of(2024, 3, 1),
+                                new ContractReplaceEventPayload("100", "01")),
+                        new EmployeeLifecycleEvent(LifecycleEventType.REPLACE_LABOR_CLASSIFICATION, LocalDate.of(2024, 4, 1),
+                                new LaborClassificationReplaceEventPayload("99002405011982", "99002405-G2")),
+                        new EmployeeLifecycleEvent(LifecycleEventType.REPLACE_COST_CENTER, LocalDate.of(2024, 5, 1),
+                                new CostCenterReplaceEventPayload(List.of(
+                                        new SimulationCostCenterAllocation("cc_it", 60),
+                                        new SimulationCostCenterAllocation("CC_HR", 40)
+                                )))
+                ),
+                resolvedHireData(new BigDecimal("75")),
+                null,
+                "BAJA"
+        );
+
+        CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
+        RunLifecycleSimulationService service = new RunLifecycleSimulationService(
+                baseProperties(),
+                new FixedSyntheticEmployeeGenerator(List.of(employee)),
+                new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
+                client,
+                new CostCenterMutationGenerator(null, baseProperties())
+        );
+
+        LoaderRunSummary summary = service.run();
+
+        assertThat(summary.workCenterChangesSuccess()).isEqualTo(1);
+        assertThat(summary.contractReplacementsSuccess()).isEqualTo(1);
+        assertThat(summary.laborClassificationReplacementsSuccess()).isEqualTo(1);
+        assertThat(summary.costCenterReplacementsSuccess()).isEqualTo(1);
+
+        assertThat(client.workCenterRequests).containsExactly(
+                new CreateWorkCenterRequest("WC_NORTE", LocalDate.of(2024, 2, 1), null));
+        assertThat(client.contractRequests).containsExactly(
+                new CreateContractRequest("100", "01", LocalDate.of(2024, 3, 1), null));
+        assertThat(client.laborClassificationRequests).containsExactly(
+                new CreateLaborClassificationRequest("99002405011982", "99002405-G2", LocalDate.of(2024, 4, 1), null));
+        assertThat(client.costCenterRequests).containsExactly(
+                new CreateCostCenterDistributionRequest(LocalDate.of(2024, 5, 1), null, List.of(
+                        new CreateCostCenterDistributionRequest.Item("CC_IT", 60),
+                        new CreateCostCenterDistributionRequest.Item("CC_HR", 40)
+                )));
+    }
+
+    // workforce-loader#7: si el backend contesta ..._IS_A_CORRECTION, el loader lo anota y para.
+    // Ni corrige por su cuenta ni vuelve a intentarlo por el endpoint viejo: un camino de reserva
+    // es lo que garantizaria que el deprecated no se retire nunca.
+    @Test
+    void shouldRecordACorrectionRejectionWithoutRetryingAnywhereElse() {
+        SyntheticEmployee employee = syntheticEmployee(new BigDecimal("75"));
+        EmployeeLifecycleScenario scenario = new EmployeeLifecycleScenario(
+                employee,
+                List.of(
+                        new EmployeeLifecycleEvent(LifecycleEventType.HIRE, LocalDate.of(2024, 1, 10)),
+                        new EmployeeLifecycleEvent(LifecycleEventType.REPLACE_CONTRACT, LocalDate.of(2024, 1, 10),
+                                new ContractReplaceEventPayload("100", "01"))
+                ),
+                resolvedHireData(new BigDecimal("75")),
+                null,
+                "BAJA"
+        );
+
+        CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
+        client.rejectContractsAsCorrection = true;
+        RunLifecycleSimulationService service = new RunLifecycleSimulationService(
+                baseProperties(),
+                new FixedSyntheticEmployeeGenerator(List.of(employee)),
+                new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
+                client,
+                new CostCenterMutationGenerator(null, baseProperties())
+        );
+
+        LoaderRunSummary summary = service.run();
+
+        assertThat(summary.contractReplacementsRequested()).isEqualTo(1);
+        assertThat(summary.contractReplacementsFailed()).isEqualTo(1);
+        assertThat(client.contractRequests).isEmpty();
+        assertThat(summary.results()).filteredOn(result -> !result.success()).singleElement()
+                .satisfies(result -> {
+                    assertThat(result.eventType()).isEqualTo("REPLACE_CONTRACT");
+                    assertThat(result.message()).contains("CONTRACT_IS_A_CORRECTION");
+                });
+    }
+
     private record CapturedAbsence(String employeeNumber, String absenceTypeCode, LocalDate startDate, UpsertAbsenceRequest request) {
     }
 
@@ -438,8 +538,13 @@ class RunLifecycleSimulationServiceTest {
         private final List<CreateIdentifierRequest> identifierRequests = new java.util.ArrayList<>();
         private final List<String> personalDataEmployeeNumbers = new java.util.ArrayList<>();
         private final List<CapturedAbsence> absences = new java.util.ArrayList<>();
+        private final List<CreateWorkCenterRequest> workCenterRequests = new java.util.ArrayList<>();
+        private final List<CreateContractRequest> contractRequests = new java.util.ArrayList<>();
+        private final List<CreateLaborClassificationRequest> laborClassificationRequests = new java.util.ArrayList<>();
+        private final List<CreateCostCenterDistributionRequest> costCenterRequests = new java.util.ArrayList<>();
         private boolean rejectContacts;
         private boolean rejectAbsences;
+        private boolean rejectContractsAsCorrection;
 
         private CapturingLifecycleClient(LoaderProperties properties) {
             super(properties, WebClient.builder());
@@ -479,6 +584,40 @@ class RunLifecycleSimulationServiceTest {
         public void createIdentifier(String ruleSystemCode, String employeeTypeCode, String employeeNumber, CreateIdentifierRequest request) {
             personalDataEmployeeNumbers.add(employeeNumber);
             identifierRequests.add(request);
+        }
+
+        @Override
+        public void createWorkCenter(String ruleSystemCode, String employeeTypeCode, String employeeNumber, CreateWorkCenterRequest request) {
+            workCenterRequests.add(request);
+        }
+
+        @Override
+        public void createContract(String ruleSystemCode, String employeeTypeCode, String employeeNumber, CreateContractRequest request) {
+            if (rejectContractsAsCorrection) {
+                throw new RuntimeException("HTTP error during contract create call: status=409 CONFLICT,"
+                        + " body={\"errorCode\":\"CONTRACT_IS_A_CORRECTION\"}");
+            }
+            contractRequests.add(request);
+        }
+
+        @Override
+        public void createLaborClassification(
+                String ruleSystemCode,
+                String employeeTypeCode,
+                String employeeNumber,
+                CreateLaborClassificationRequest request
+        ) {
+            laborClassificationRequests.add(request);
+        }
+
+        @Override
+        public void createCostCenterDistribution(
+                String ruleSystemCode,
+                String employeeTypeCode,
+                String employeeNumber,
+                CreateCostCenterDistributionRequest request
+        ) {
+            costCenterRequests.add(request);
         }
 
         @Override
