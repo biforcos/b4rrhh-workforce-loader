@@ -8,6 +8,7 @@ import com.b4rrhh.workforceloader.infrastructure.api.B4rrhhLifecycleClient;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateAddressRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContactRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkCenterRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
@@ -15,7 +16,6 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceContractFromDateRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceCostCenterDistributionFromDateRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceLaborClassificationFromDateRequest;
-import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceWorkCenterFromDateRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.UpsertAbsenceRequest;
@@ -504,13 +504,19 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             return workingTimePercentage.stripTrailingZeros();
             }
 
-    private ReplaceWorkCenterFromDateRequest toReplaceWorkCenterRequest(
+    // ADR-057: el cambio de centro es un alta con su fecha de inicio, y cerrar la
+    // asignacion anterior es consecuencia del backend, no una orden del loader
+    // (workforce-loader#7). Va sin fin porque la asignacion que desplaza tambien
+    // esta abierta: el loader solo muta dentro de una presencia viva, y quien
+    // cierra la ventana es el cese.
+    private CreateWorkCenterRequest toCreateWorkCenterRequest(
             EmployeeLifecycleEvent event,
             WorkCenterChangeEventPayload payload
     ) {
-        return new ReplaceWorkCenterFromDateRequest(
+        return new CreateWorkCenterRequest(
+                normalizeCode(payload.workCenterCode()),
                 event.effectiveDate(),
-                normalizeCode(payload.workCenterCode())
+                null
         );
     }
 
@@ -558,7 +564,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             return EventOutcome.failure("Missing WorkCenterChangeEventPayload for CHANGE_WORK_CENTER");
         }
 
-        ReplaceWorkCenterFromDateRequest request = toReplaceWorkCenterRequest(event, payload);
+        CreateWorkCenterRequest request = toCreateWorkCenterRequest(event, payload);
         EventOutcome outcome = executeWorkCenterChange(employee, request);
         if (outcome.success()) {
             state.setCurrentWorkCenterCode(payload.workCenterCode());
@@ -810,19 +816,19 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         }
     }
 
-    private EventOutcome executeWorkCenterChange(SyntheticEmployee employee, ReplaceWorkCenterFromDateRequest request) {
+    private EventOutcome executeWorkCenterChange(SyntheticEmployee employee, CreateWorkCenterRequest request) {
         if (properties.getRun().isDryRun()) {
             return EventOutcome.success("DRY-RUN payload -> " + summarizeWorkCenterChangePayload(employee, request));
         }
 
         try {
-            b4rrhhLifecycleClient.replaceWorkCenterFromDate(
+            b4rrhhLifecycleClient.createWorkCenter(
                     normalizeCode(employee.ruleSystemCode()),
                     normalizeCode(employee.employeeTypeCode()),
                     employee.employeeNumber(),
                     request
             );
-            return EventOutcome.success("Work center replace-from-date call completed");
+            return EventOutcome.success("Work center create call completed");
         } catch (Exception ex) {
             return EventOutcome.failure(ex.getMessage());
         }
@@ -976,12 +982,12 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                 + ", rehireDate=" + request.rehireDate();
     }
 
-    private static String summarizeWorkCenterChangePayload(SyntheticEmployee employee, ReplaceWorkCenterFromDateRequest request) {
-        return "operation=replace-from-date"
+    private static String summarizeWorkCenterChangePayload(SyntheticEmployee employee, CreateWorkCenterRequest request) {
+        return "operation=create"
                 + ", employeeNumber=" + employee.employeeNumber()
                 + ", ruleSystemCode=" + normalizeCode(employee.ruleSystemCode())
                 + ", employeeTypeCode=" + normalizeCode(employee.employeeTypeCode())
-                + ", effectiveDate=" + request.effectiveDate()
+                + ", startDate=" + request.startDate()
                 + ", workCenterCode=" + request.workCenterCode()
                 ;
     }

@@ -11,7 +11,6 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceContractFromDateRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceCostCenterDistributionFromDateRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceLaborClassificationFromDateRequest;
-import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceWorkCenterFromDateRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.UpsertAbsenceRequest;
@@ -150,22 +149,6 @@ public class B4rrhhLifecycleClient {
             executePostWithoutResponse(
                 "work center create",
                 "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/work-centers",
-                request,
-                ruleSystemCode,
-                employeeTypeCode,
-                employeeNumber
-            );
-            }
-
-            public void replaceWorkCenterFromDate(
-                String ruleSystemCode,
-                String employeeTypeCode,
-                String employeeNumber,
-                ReplaceWorkCenterFromDateRequest request
-            ) {
-            executePostWithoutResponse(
-                "work center replace-from-date",
-                "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/work-centers/replace-from-date",
                 request,
                 ruleSystemCode,
                 employeeTypeCode,
