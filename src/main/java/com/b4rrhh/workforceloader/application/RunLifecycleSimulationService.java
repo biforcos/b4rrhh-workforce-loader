@@ -8,6 +8,7 @@ import com.b4rrhh.workforceloader.infrastructure.api.B4rrhhLifecycleClient;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateAddressRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContactRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContractRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateCostCenterDistributionRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateLaborClassificationRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkCenterRequest;
@@ -15,7 +16,6 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeResponse;
-import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceCostCenterDistributionFromDateRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.UpsertAbsenceRequest;
@@ -544,13 +544,14 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         );
     }
 
-    private ReplaceCostCenterDistributionFromDateRequest toReplaceCostCenterRequest(
+    private CreateCostCenterDistributionRequest toCreateCostCenterDistributionRequest(
             EmployeeLifecycleEvent event,
             CostCenterReplaceEventPayload payload
     ) {
-        return new ReplaceCostCenterDistributionFromDateRequest(
+        return new CreateCostCenterDistributionRequest(
                 event.effectiveDate(),
-                toApiReplaceItems(payload.allocations())
+                null,
+                toApiDistributionItems(payload.allocations())
         );
     }
 
@@ -631,7 +632,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             return EventOutcome.failure("Missing CostCenterReplaceEventPayload for REPLACE_COST_CENTER");
         }
 
-        ReplaceCostCenterDistributionFromDateRequest request = toReplaceCostCenterRequest(event, payload);
+        CreateCostCenterDistributionRequest request = toCreateCostCenterDistributionRequest(event, payload);
         EventOutcome outcome = executeCostCenterReplace(employee, request);
         if (outcome.success()) {
             state.setCurrentCostCenterDistribution(payload.allocations());
@@ -750,14 +751,14 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                 .toList();
     }
 
-    private static List<ReplaceCostCenterDistributionFromDateRequest.Item> toApiReplaceItems(
+    private static List<CreateCostCenterDistributionRequest.Item> toApiDistributionItems(
             List<SimulationCostCenterAllocation> allocations
     ) {
         if (allocations == null) {
             return List.of();
         }
         return allocations.stream()
-                .map(allocation -> new ReplaceCostCenterDistributionFromDateRequest.Item(
+                .map(allocation -> new CreateCostCenterDistributionRequest.Item(
                         normalizeCode(allocation.costCenterCode()),
                         allocation.allocationPercentage()
                 ))
@@ -877,20 +878,20 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
 
     private EventOutcome executeCostCenterReplace(
             SyntheticEmployee employee,
-            ReplaceCostCenterDistributionFromDateRequest request
+            CreateCostCenterDistributionRequest request
     ) {
         if (properties.getRun().isDryRun()) {
             return EventOutcome.success("DRY-RUN payload -> " + summarizeCostCenterReplacePayload(employee, request));
         }
 
         try {
-            b4rrhhLifecycleClient.replaceCostCenterFromDate(
+            b4rrhhLifecycleClient.createCostCenterDistribution(
                     normalizeCode(employee.ruleSystemCode()),
                     normalizeCode(employee.employeeTypeCode()),
                     employee.employeeNumber(),
                     request
             );
-            return EventOutcome.success("Cost center replace-from-date call completed");
+            return EventOutcome.success("Cost center distribution create call completed");
         } catch (Exception ex) {
             return EventOutcome.failure(ex.getMessage());
         }
@@ -1017,12 +1018,12 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
 
     private static String summarizeCostCenterReplacePayload(
             SyntheticEmployee employee,
-            ReplaceCostCenterDistributionFromDateRequest request
+            CreateCostCenterDistributionRequest request
     ) {
         return "employeeNumber=" + employee.employeeNumber()
                 + ", ruleSystemCode=" + normalizeCode(employee.ruleSystemCode())
                 + ", employeeTypeCode=" + normalizeCode(employee.employeeTypeCode())
-                + ", effectiveDate=" + request.effectiveDate()
+                + ", startDate=" + request.startDate()
                 + ", items=" + request.items().size();
     }
 
