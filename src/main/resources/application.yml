@@ -120,11 +120,20 @@ loader:
       - 99002405-G1
       - 99002405-G2
       - 99002405-G3
-    # Y por esto contract_subtype_code es siempre 01: los diez tipos de contrato
-    # legales (100, 108, ..., 422) solo tienen relacionado ese subtipo. Los
-    # otros tres del catalogo (FT1, PT1, INT) cuelgan de IND y TMP, los tipos
-    # genericos de la semilla base, que este filtro deja fuera porque no son
-    # codigos de contrato reales. Es cosa del catalogo, no del loader
-    # (workforce-loader#5).
+    # Este tampoco excluye ya nada, y por el mismo motivo: era el catalogo, no
+    # el loader. Desde backend#76 el catalogo CONTRACT de ESP tiene solo los
+    # diez tipos legales (100, 108, ..., 422) y CONTRACT_SUBTYPE solo el 01.
+    # Los genericos de la semilla base —IND y TMP, con sus FT1 / PT1 / INT—
+    # los retiro la migracion V123. Este comentario decia donde estaba el
+    # arreglo; ahi se hizo.
+    #
+    # Se queda, y por los dos mismos motivos que agreement-code. Uno, declarar
+    # que el loader siembra tipos de contrato reales es informacion: por esto
+    # contract_subtype_code es siempre 01, porque es el unico subtipo que los
+    # diez legales tienen relacionado. Y dos, es la red: el dia que entre al
+    # catalogo un codigo que no sea un tipo legal —otro sistema de reglas, un
+    # tipo a medida— el loader seguira contratando con los que si lo son en vez
+    # de repartir empleados en silencio entre codigos sin norma detras
+    # (workforce-loader#5, backend#76).
     numeric-contract-types-only: true
     require-contract-subtype: true
