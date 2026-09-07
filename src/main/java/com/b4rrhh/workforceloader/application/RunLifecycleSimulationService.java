@@ -5,6 +5,7 @@ import com.b4rrhh.workforceloader.domain.model.LoaderRunSummary;
 import com.b4rrhh.workforceloader.domain.model.SyntheticEmployee;
 import com.b4rrhh.workforceloader.domain.model.SyntheticPersonalData;
 import com.b4rrhh.workforceloader.infrastructure.api.B4rrhhLifecycleClient;
+import com.b4rrhh.workforceloader.infrastructure.api.BackendTargetMismatchException;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateAddressRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContactRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContractRequest;
@@ -337,7 +338,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             );
             return EventOutcome.success("Address create call completed: " + request.addressTypeCode());
         } catch (Exception ex) {
-            return EventOutcome.failure(ex.getMessage());
+            return failureUnlessTheBackendIsWrong(ex);
         }
     }
 
@@ -357,7 +358,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             );
             return EventOutcome.success("Contact create call completed: " + request.contactTypeCode());
         } catch (Exception ex) {
-            return EventOutcome.failure(ex.getMessage());
+            return failureUnlessTheBackendIsWrong(ex);
         }
     }
 
@@ -379,7 +380,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             );
             return EventOutcome.success("Identifier create call completed: " + request.identifierTypeCode());
         } catch (Exception ex) {
-            return EventOutcome.failure(ex.getMessage());
+            return failureUnlessTheBackendIsWrong(ex);
         }
     }
 
@@ -674,7 +675,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             );
             return EventOutcome.success("Absence upsert call completed: " + absenceTypeCode);
         } catch (Exception ex) {
-            return EventOutcome.failure(ex.getMessage());
+            return failureUnlessTheBackendIsWrong(ex);
         }
     }
 
@@ -777,7 +778,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                     response.employeeNumber()
             );
         } catch (Exception ex) {
-            return new HireResult(EventOutcome.failure(ex.getMessage()), null);
+            return new HireResult(failureUnlessTheBackendIsWrong(ex), null);
         }
     }
 
@@ -797,7 +798,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             );
             return EventOutcome.success(summarizeApiResponse("Terminate", response.status(), response.message()));
         } catch (Exception ex) {
-            return EventOutcome.failure(ex.getMessage());
+            return failureUnlessTheBackendIsWrong(ex);
         }
     }
 
@@ -815,7 +816,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             );
             return EventOutcome.success(summarizeApiResponse("Rehire", response.status(), response.message()));
         } catch (Exception ex) {
-            return EventOutcome.failure(ex.getMessage());
+            return failureUnlessTheBackendIsWrong(ex);
         }
     }
 
@@ -833,7 +834,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             );
             return EventOutcome.success("Work center create call completed");
         } catch (Exception ex) {
-            return EventOutcome.failure(ex.getMessage());
+            return failureUnlessTheBackendIsWrong(ex);
         }
     }
 
@@ -851,7 +852,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             );
             return EventOutcome.success("Contract create call completed");
         } catch (Exception ex) {
-            return EventOutcome.failure(ex.getMessage());
+            return failureUnlessTheBackendIsWrong(ex);
         }
     }
 
@@ -872,7 +873,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             );
             return EventOutcome.success("Labor classification create call completed");
         } catch (Exception ex) {
-            return EventOutcome.failure(ex.getMessage());
+            return failureUnlessTheBackendIsWrong(ex);
         }
     }
 
@@ -893,7 +894,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             );
             return EventOutcome.success("Cost center distribution create call completed");
         } catch (Exception ex) {
-            return EventOutcome.failure(ex.getMessage());
+            return failureUnlessTheBackendIsWrong(ex);
         }
     }
 
@@ -958,6 +959,19 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                     "Invalid simulation configuration: rehire min days must be <= max days"
             );
         }
+    }
+
+    /**
+     * Un evento que falla se anota y la corrida sigue: es lo que hace util el
+     * informe final. Un backend equivocado no es un evento que falla, es la
+     * corrida entera, y tiene que subir hasta arriba sin que nadie lo convierta
+     * en una linea roja mas (workforce-loader#8).
+     */
+    private static EventOutcome failureUnlessTheBackendIsWrong(Exception ex) {
+        if (ex instanceof BackendTargetMismatchException mismatch) {
+            throw mismatch;
+        }
+        return EventOutcome.failure(ex.getMessage());
     }
 
     private static String normalizeCode(String value) {

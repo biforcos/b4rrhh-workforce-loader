@@ -26,10 +26,16 @@ import java.time.LocalDate;
 public class B4rrhhLifecycleClient {
 
     private final LoaderProperties properties;
+    private final BackendTargetGuard backendTargetGuard;
     private final WebClient webClient;
 
-    public B4rrhhLifecycleClient(LoaderProperties properties, WebClient.Builder webClientBuilder) {
+    public B4rrhhLifecycleClient(
+            LoaderProperties properties,
+            BackendTargetGuard backendTargetGuard,
+            WebClient.Builder webClientBuilder
+    ) {
         this.properties = properties;
+        this.backendTargetGuard = backendTargetGuard;
         WebClient.Builder builder = webClientBuilder
                 .baseUrl(properties.getBackend().getBaseUrl());
 
@@ -53,6 +59,10 @@ public class B4rrhhLifecycleClient {
     }
 
     public HireEmployeeResponse hire(HireEmployeeRequest request) {
+        // Fuera del try, y no dentro: el catch de abajo envuelve cualquier
+        // excepcion en una RuntimeException que el servicio anota como evento
+        // fallido, y esto no es un evento fallido (workforce-loader#8).
+        backendTargetGuard.verifyBeforeWriting();
         try {
             HireEmployeeResponse response = webClient.post()
                     .uri(properties.getBackend().getHirePath())
@@ -82,6 +92,7 @@ public class B4rrhhLifecycleClient {
             String employeeNumber,
             TerminateEmployeeRequest request
     ) {
+        backendTargetGuard.verifyBeforeWriting();
         try {
             TerminateEmployeeResponse response = webClient.post()
                     .uri("/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/terminate",
@@ -114,6 +125,7 @@ public class B4rrhhLifecycleClient {
             String employeeNumber,
             RehireEmployeeRequest request
     ) {
+        backendTargetGuard.verifyBeforeWriting();
         try {
             RehireEmployeeResponse response = webClient.post()
                     .uri("/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/rehire",
@@ -285,6 +297,9 @@ public class B4rrhhLifecycleClient {
                 Object body,
                 Object... uriVariables
             ) {
+            // Por aqui pasan las ocho altas que no devuelven cuerpo. Una ruta de
+            // escritura nueva que use este metodo queda comprobada sola.
+            backendTargetGuard.verifyBeforeWriting();
             try {
                 request
                     .uri(uri, uriVariables)

@@ -4,6 +4,8 @@ import com.b4rrhh.workforceloader.domain.model.LoaderRunSummary;
 import com.b4rrhh.workforceloader.domain.model.SyntheticEmployee;
 import com.b4rrhh.workforceloader.domain.model.SyntheticPersonalData;
 import com.b4rrhh.workforceloader.infrastructure.api.B4rrhhLifecycleClient;
+import com.b4rrhh.workforceloader.infrastructure.api.BackendTargetGuard;
+import com.b4rrhh.workforceloader.infrastructure.api.SystemTargetApiClient;
 import com.b4rrhh.workforceloader.infrastructure.api.CatalogApiClient;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CatalogOption;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateAddressRequest;
@@ -547,7 +549,13 @@ class RunLifecycleSimulationServiceTest {
         private boolean rejectContractsAsCorrection;
 
         private CapturingLifecycleClient(LoaderProperties properties) {
-            super(properties, WebClient.builder());
+            // La guarda no llega a usarse: este doble sustituye todas las
+            // escrituras. Va un ejemplar de verdad solo para no cambiar la
+            // forma del constructor (workforce-loader#8).
+            super(
+                    properties,
+                    new BackendTargetGuard(properties, new SystemTargetApiClient(properties, WebClient.builder())),
+                    WebClient.builder());
         }
 
         @Override
