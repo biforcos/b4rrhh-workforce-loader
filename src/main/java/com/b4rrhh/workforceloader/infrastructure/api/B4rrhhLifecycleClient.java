@@ -2,13 +2,13 @@ package com.b4rrhh.workforceloader.infrastructure.api;
 
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateAddressRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContactRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContractRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkCenterRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeResponse;
-import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceContractFromDateRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceCostCenterDistributionFromDateRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceLaborClassificationFromDateRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeRequest;
@@ -156,15 +156,15 @@ public class B4rrhhLifecycleClient {
             );
             }
 
-            public void replaceContractFromDate(
+            public void createContract(
                 String ruleSystemCode,
                 String employeeTypeCode,
                 String employeeNumber,
-                ReplaceContractFromDateRequest request
+                CreateContractRequest request
             ) {
             executePostWithoutResponse(
-                "contract replace-from-date",
-                "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/contracts/replace-from-date",
+                "contract create",
+                "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/contracts",
                 request,
                 ruleSystemCode,
                 employeeTypeCode,
