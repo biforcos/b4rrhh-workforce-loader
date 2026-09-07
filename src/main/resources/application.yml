@@ -100,13 +100,21 @@ loader:
     enabled: true
 
   filters:
-    # Un solo convenio a proposito, con tres en el catalogo AGREEMENT de ESP.
-    # Los otros dos, AGR_OFFICE y AGR_TECH, son los de la semilla base: tienen
-    # categorias y perfil, pero ninguna asignacion de conceptos de nomina
-    # (payroll_engine.concept_assignment solo conoce el 99002405011982). Un
-    # empleado bajo ellos se da de alta bien y no tiene nomina calculable, y
-    # la demo calcula nominas. Si algun dia se les siembra su grafo, se quita
-    # este filtro y el loader los reparte solo (workforce-loader#5).
+    # Hoy esto no excluye nada: desde backend#6 el catalogo AGREEMENT de ESP
+    # tiene un solo convenio, el real, y estas tres son sus unicas categorias.
+    # Los inventados de la semilla base —AGR_OFFICE y AGR_TECH, con sus
+    # CAT_ADMIN / CAT_TECH_*— los retiraron las migraciones V121 y V122.
+    #
+    # Se queda, y a proposito, por dos motivos. Uno, declarar contra que
+    # convenio siembra el loader es informacion, no ruido. Y dos, es la red:
+    # el filtro nacio (workforce-loader#5) porque un empleado bajo un convenio
+    # sin asignacion de conceptos se da de alta bien y luego no tiene nomina
+    # calculable, y la demo calcula nominas. El dia que entre un segundo
+    # convenio al catalogo, el loader seguira sembrando lo que sabe calcular en
+    # vez de repartir empleados en silencio entre convenios sin grafo.
+    #
+    # Es decir: paso de ser un filtro a ser una declaracion de intenciones, y
+    # sigue siendo el aviso de que ampliarlo es una decision, no un descuido.
     agreement-code: 99002405011982
     agreement-category-codes:
       - 99002405-G1
