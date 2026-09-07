@@ -4,13 +4,13 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateAddressRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContactRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContractRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateLaborClassificationRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkCenterRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceCostCenterDistributionFromDateRequest;
-import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceLaborClassificationFromDateRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.UpsertAbsenceRequest;
@@ -172,15 +172,15 @@ public class B4rrhhLifecycleClient {
             );
             }
 
-            public void replaceLaborClassificationFromDate(
+            public void createLaborClassification(
                 String ruleSystemCode,
                 String employeeTypeCode,
                 String employeeNumber,
-                ReplaceLaborClassificationFromDateRequest request
+                CreateLaborClassificationRequest request
             ) {
             executePostWithoutResponse(
-                "labor classification replace-from-date",
-                "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/labor-classifications/replace-from-date",
+                "labor classification create",
+                "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/labor-classifications",
                 request,
                 ruleSystemCode,
                 employeeTypeCode,

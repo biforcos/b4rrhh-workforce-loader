@@ -9,13 +9,13 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateAddressRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContactRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContractRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateLaborClassificationRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkCenterRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceCostCenterDistributionFromDateRequest;
-import com.b4rrhh.workforceloader.infrastructure.api.dto.ReplaceLaborClassificationFromDateRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.UpsertAbsenceRequest;
@@ -532,14 +532,15 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         );
     }
 
-    private ReplaceLaborClassificationFromDateRequest toReplaceLaborClassificationRequest(
+    private CreateLaborClassificationRequest toCreateLaborClassificationRequest(
             EmployeeLifecycleEvent event,
             LaborClassificationReplaceEventPayload payload
     ) {
-        return new ReplaceLaborClassificationFromDateRequest(
-                event.effectiveDate(),
+        return new CreateLaborClassificationRequest(
                 normalizeCode(payload.agreementCode()),
-                normalizeCode(payload.agreementCategoryCode())
+                normalizeCode(payload.agreementCategoryCode()),
+                event.effectiveDate(),
+                null
         );
     }
 
@@ -607,7 +608,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             return EventOutcome.failure("Missing LaborClassificationReplaceEventPayload for REPLACE_LABOR_CLASSIFICATION");
         }
 
-        ReplaceLaborClassificationFromDateRequest request = toReplaceLaborClassificationRequest(event, payload);
+        CreateLaborClassificationRequest request = toCreateLaborClassificationRequest(event, payload);
         EventOutcome outcome = executeLaborClassificationReplace(employee, request);
         if (outcome.success()) {
             state.setCurrentLaborClassificationData(
@@ -855,20 +856,20 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
 
     private EventOutcome executeLaborClassificationReplace(
             SyntheticEmployee employee,
-            ReplaceLaborClassificationFromDateRequest request
+            CreateLaborClassificationRequest request
     ) {
         if (properties.getRun().isDryRun()) {
             return EventOutcome.success("DRY-RUN payload -> " + summarizeLaborClassificationReplacePayload(employee, request));
         }
 
         try {
-            b4rrhhLifecycleClient.replaceLaborClassificationFromDate(
+            b4rrhhLifecycleClient.createLaborClassification(
                     normalizeCode(employee.ruleSystemCode()),
                     normalizeCode(employee.employeeTypeCode()),
                     employee.employeeNumber(),
                     request
             );
-            return EventOutcome.success("Labor classification replace-from-date call completed");
+            return EventOutcome.success("Labor classification create call completed");
         } catch (Exception ex) {
             return EventOutcome.failure(ex.getMessage());
         }
@@ -1004,12 +1005,12 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
 
     private static String summarizeLaborClassificationReplacePayload(
             SyntheticEmployee employee,
-            ReplaceLaborClassificationFromDateRequest request
+            CreateLaborClassificationRequest request
     ) {
         return "employeeNumber=" + employee.employeeNumber()
                 + ", ruleSystemCode=" + normalizeCode(employee.ruleSystemCode())
                 + ", employeeTypeCode=" + normalizeCode(employee.employeeTypeCode())
-                + ", effectiveDate=" + request.effectiveDate()
+                + ", startDate=" + request.startDate()
                 + ", agreementCode=" + request.agreementCode()
                 + ", agreementCategoryCode=" + request.agreementCategoryCode();
     }
