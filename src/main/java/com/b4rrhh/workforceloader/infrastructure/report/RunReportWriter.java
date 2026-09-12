@@ -23,6 +23,10 @@ public class RunReportWriter {
             summary.workCenterChangesRequested(),
             summary.workCenterChangesSuccess(),
             summary.workCenterChangesFailed());
+        log.info("Working time changes: requested={} success={} failed={}",
+            summary.workingTimeChangesRequested(),
+            summary.workingTimeChangesSuccess(),
+            summary.workingTimeChangesFailed());
         log.info("Contract replacements: requested={} success={} failed={}",
             summary.contractReplacementsRequested(),
             summary.contractReplacementsSuccess(),
@@ -60,6 +64,7 @@ public class RunReportWriter {
             + summary.terminationsFailed()
             + summary.rehiresFailed()
             + summary.workCenterChangesFailed()
+            + summary.workingTimeChangesFailed()
             + summary.contractReplacementsFailed()
             + summary.laborClassificationReplacementsFailed()
             + summary.costCenterReplacementsFailed()

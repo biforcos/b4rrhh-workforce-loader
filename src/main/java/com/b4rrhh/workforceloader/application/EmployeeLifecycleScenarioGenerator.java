@@ -4,6 +4,7 @@ import com.b4rrhh.workforceloader.domain.model.SyntheticEmployee;
 import com.b4rrhh.workforceloader.infrastructure.config.LoaderProperties;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -51,6 +52,9 @@ public class EmployeeLifecycleScenarioGenerator {
         String ruleSystemCode = normalizeCode(properties.getDefaults().getRuleSystemCode());
         ResolvedHireReferencePools referencePools = hireReferenceDataResolver.preloadPools(ruleSystemCode);
 
+        LoaderProperties.WorkingTimeChange workingTimeChange = properties.getWorkingTimeChange();
+        int workingTimeChangesPlanned = 0;
+
         List<EmployeeLifecycleScenario> scenarios = new ArrayList<>(employees.size());
         for (SyntheticEmployee employee : employees) {
             ResolvedHireData resolvedHireData = hireReferenceDataResolver
@@ -89,6 +93,15 @@ public class EmployeeLifecycleScenarioGenerator {
             addMutationEvents(events, activeWindows, simulation, random);
             events.addAll(absenceScenarioGenerator.generate(
                     activeWindows, simulationHorizon, referencePools.absenceTypes(), random));
+
+            if (workingTimeChangesPlanned < workingTimeChange.getEmployees()
+                    && takesTheMidMonthWorkingTimeChange(workingTimeChange, activeWindows, resolvedHireData)) {
+                events.add(new EmployeeLifecycleEvent(
+                        LifecycleEventType.CHANGE_WORKING_TIME,
+                        workingTimeChange.getDate()
+                ));
+                workingTimeChangesPlanned++;
+            }
 
             events.sort(Comparator.comparing(EmployeeLifecycleEvent::effectiveDate));
                 List<EmployeeLifecycleEvent> plannedEvents = addMutationPayloads(
@@ -186,6 +199,17 @@ public class EmployeeLifecycleScenarioGenerator {
                     state.setLastEffectiveDate(event.effectiveDate());
                     planned.add(new EmployeeLifecycleEvent(event.eventType(), event.effectiveDate(), payload));
                 }
+                case CHANGE_WORKING_TIME -> {
+                    if (!state.isActive()) {
+                        continue;
+                    }
+                    state.setLastEffectiveDate(event.effectiveDate());
+                    planned.add(new EmployeeLifecycleEvent(
+                            event.eventType(),
+                            event.effectiveDate(),
+                            new WorkingTimeChangeEventPayload(properties.getWorkingTimeChange().getPercentage())
+                    ));
+                }
                 case ABSENCE -> {
                     // Ya viene con su carga: la planifico el generador de ausencias, dentro de un
                     // periodo de presencia. No toca el estado: nada posterior depende de ella.
@@ -198,6 +222,38 @@ public class EmployeeLifecycleScenarioGenerator {
         }
 
         return planned;
+    }
+
+    /**
+     * Se lo lleva quien ya estaba dado de alta antes de que empezara el mes del corte y sigue
+     * sin cese: solo asi el cambio parte el mes entero en dos tramos y no un trozo suelto.
+     *
+     * La eleccion recorre los empleados en el orden en que vienen y se queda con los primeros
+     * que valen, sin gastar azar: anadir este escenario no desplaza la secuencia del Random y
+     * por tanto no cambia el resto de la siembra.
+     */
+    private static boolean takesTheMidMonthWorkingTimeChange(
+            LoaderProperties.WorkingTimeChange workingTimeChange,
+            List<ActiveWindow> activeWindows,
+            ResolvedHireData resolvedHireData
+    ) {
+        if (!workingTimeChange.isEnabled() || workingTimeChange.getDate() == null) {
+            return false;
+        }
+        // Cambiar la jornada al mismo porcentaje daria dos tramos con el mismo precio: dos
+        // lineas iguales que no ensenan nada de lo que ADR-058 decidio.
+        BigDecimal current = resolvedHireData.workingTimePercentage();
+        if (current == null || current.compareTo(workingTimeChange.getPercentage()) == 0) {
+            return false;
+        }
+
+        LocalDate monthStart = workingTimeChange.getDate().withDayOfMonth(1);
+        for (ActiveWindow window : activeWindows) {
+            if (window.endDate() == null && window.startDate().isBefore(monthStart)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void applyInitialHireState(

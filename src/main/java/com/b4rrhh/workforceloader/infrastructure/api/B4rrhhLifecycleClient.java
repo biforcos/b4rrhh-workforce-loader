@@ -9,6 +9,7 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateLaborClassificati
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkCenterRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkingTimeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeRequest;
@@ -161,6 +162,26 @@ public class B4rrhhLifecycleClient {
             executePostWithoutResponse(
                 "work center create",
                 "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/work-centers",
+                request,
+                ruleSystemCode,
+                employeeTypeCode,
+                employeeNumber
+            );
+            }
+
+            /**
+             * Anade una ventana de jornada. Si habia una en vigor en {@code startDate}, el
+             * backend la cierra el dia anterior: es la unica consecuencia automatica (ADR-057).
+             */
+            public void createWorkingTime(
+                String ruleSystemCode,
+                String employeeTypeCode,
+                String employeeNumber,
+                CreateWorkingTimeRequest request
+            ) {
+            executePostWithoutResponse(
+                "working time create",
+                "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/working-times",
                 request,
                 ruleSystemCode,
                 employeeTypeCode,

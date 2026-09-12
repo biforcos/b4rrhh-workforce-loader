@@ -44,6 +44,10 @@ public class LoaderProperties {
 
     @Valid
     @NotNull
+    private WorkingTimeChange workingTimeChange = new WorkingTimeChange();
+
+    @Valid
+    @NotNull
     private Filters filters = new Filters();
 
     public Backend getBackend() {
@@ -84,6 +88,14 @@ public class LoaderProperties {
 
     public void setCostCenter(CostCenter costCenter) {
         this.costCenter = costCenter;
+    }
+
+    public WorkingTimeChange getWorkingTimeChange() {
+        return workingTimeChange;
+    }
+
+    public void setWorkingTimeChange(WorkingTimeChange workingTimeChange) {
+        this.workingTimeChange = workingTimeChange;
     }
 
     public Simulation getSimulation() {
@@ -385,6 +397,64 @@ public class LoaderProperties {
 
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
+        }
+    }
+
+    /**
+     * El mes partido de la demo: unos cuantos empleados cambian de jornada a mitad de mes,
+     * para que los conceptos SEGMENT (ADR-058) tengan dos tramos con precio distinto que
+     * ejercitar. Lo hace el loader por API y no una migracion: los empleados son suyos, y
+     * un UPDATE escrito en una migracion se ejecuta antes de que exista nadie (backend#74).
+     */
+    public static class WorkingTimeChange {
+
+        private boolean enabled = true;
+
+        /**
+         * Dia en que arranca la jornada nueva, no el ultimo de la anterior: el backend cierra
+         * la ventana en vigor el dia de antes (ADR-057). Va escrita y no se calcula del reloj,
+         * como el resto de la generacion: la misma semilla tiene que dar lo mismo cualquier dia.
+         */
+        private LocalDate date;
+
+        @DecimalMin(value = "0.0", inclusive = false)
+        @DecimalMax("100.0")
+        private BigDecimal percentage = new BigDecimal("50");
+
+        /** Cuantos empleados lo llevan. Con uno ya se ve; con varios sobrevive a un cese. */
+        @Min(1)
+        private int employees = 5;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public LocalDate getDate() {
+            return date;
+        }
+
+        public void setDate(LocalDate date) {
+            this.date = date;
+        }
+
+        public BigDecimal getPercentage() {
+            return percentage;
+        }
+
+        public void setPercentage(BigDecimal percentage) {
+            this.percentage = percentage;
+        }
+
+        public int getEmployees() {
+            return employees;
+        }
+
+        public void setEmployees(int employees) {
+            this.employees = employees;
         }
     }
 

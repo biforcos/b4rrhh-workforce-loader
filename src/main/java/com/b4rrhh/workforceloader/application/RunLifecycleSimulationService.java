@@ -13,6 +13,7 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateCostCenterDistrib
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateLaborClassificationRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkCenterRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkingTimeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
@@ -77,6 +78,10 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         int workCenterChangesRequested = 0;
         int workCenterChangesSuccess = 0;
         int workCenterChangesFailed = 0;
+
+        int workingTimeChangesRequested = 0;
+        int workingTimeChangesSuccess = 0;
+        int workingTimeChangesFailed = 0;
 
         int contractReplacementsRequested = 0;
         int contractReplacementsSuccess = 0;
@@ -206,6 +211,16 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                             scenarioCanContinue = false;
                         }
                     }
+                    case CHANGE_WORKING_TIME -> {
+                        workingTimeChangesRequested++;
+                        outcome = executePlannedWorkingTimeChange(employee, event, executionState);
+                        if (outcome.success()) {
+                            workingTimeChangesSuccess++;
+                        } else {
+                            workingTimeChangesFailed++;
+                            scenarioCanContinue = false;
+                        }
+                    }
                     case ABSENCE -> {
                         // Una ausencia rechazada se anota y el escenario sigue: ningun evento
                         // posterior depende de ella (workforce-loader#5).
@@ -250,6 +265,9 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                 workCenterChangesRequested,
                 workCenterChangesSuccess,
                 workCenterChangesFailed,
+                workingTimeChangesRequested,
+                workingTimeChangesSuccess,
+                workingTimeChangesFailed,
                 contractReplacementsRequested,
                 contractReplacementsSuccess,
                 contractReplacementsFailed,
@@ -521,6 +539,19 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         );
     }
 
+    // Sin fecha de fin, igual que el centro de trabajo: la ventana nueva queda abierta y es
+    // el backend quien cierra la anterior el dia de antes (ADR-057).
+    private CreateWorkingTimeRequest toCreateWorkingTimeRequest(
+            EmployeeLifecycleEvent event,
+            WorkingTimeChangeEventPayload payload
+    ) {
+        return new CreateWorkingTimeRequest(
+                event.effectiveDate(),
+                null,
+                payload.workingTimePercentage()
+        );
+    }
+
     private CreateContractRequest toCreateContractRequest(
             EmployeeLifecycleEvent event,
             ContractReplaceEventPayload payload
@@ -572,6 +603,26 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         EventOutcome outcome = executeWorkCenterChange(employee, request);
         if (outcome.success()) {
             state.setCurrentWorkCenterCode(payload.workCenterCode());
+            state.setLastEffectiveDate(event.effectiveDate());
+        }
+        return outcome;
+    }
+
+    private EventOutcome executePlannedWorkingTimeChange(
+            SyntheticEmployee employee,
+            EmployeeLifecycleEvent event,
+            EmployeeExecutionState state
+    ) {
+        if (!state.isActive()) {
+            return EventOutcome.failure("Cannot change working time on inactive employee state");
+        }
+        if (!(event.payload() instanceof WorkingTimeChangeEventPayload payload)) {
+            return EventOutcome.failure("Missing WorkingTimeChangeEventPayload for CHANGE_WORKING_TIME");
+        }
+
+        CreateWorkingTimeRequest request = toCreateWorkingTimeRequest(event, payload);
+        EventOutcome outcome = executeWorkingTimeChange(employee, request);
+        if (outcome.success()) {
             state.setLastEffectiveDate(event.effectiveDate());
         }
         return outcome;
@@ -838,6 +889,24 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         }
     }
 
+    private EventOutcome executeWorkingTimeChange(SyntheticEmployee employee, CreateWorkingTimeRequest request) {
+        if (properties.getRun().isDryRun()) {
+            return EventOutcome.success("DRY-RUN payload -> " + summarizeWorkingTimeChangePayload(employee, request));
+        }
+
+        try {
+            b4rrhhLifecycleClient.createWorkingTime(
+                    normalizeCode(employee.ruleSystemCode()),
+                    normalizeCode(employee.employeeTypeCode()),
+                    employee.employeeNumber(),
+                    request
+            );
+            return EventOutcome.success("Working time create call completed");
+        } catch (Exception ex) {
+            return failureUnlessTheBackendIsWrong(ex);
+        }
+    }
+
     private EventOutcome executeContractReplace(SyntheticEmployee employee, CreateContractRequest request) {
         if (properties.getRun().isDryRun()) {
             return EventOutcome.success("DRY-RUN payload -> " + summarizeContractReplacePayload(employee, request));
@@ -1006,6 +1075,16 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                 + ", employeeTypeCode=" + normalizeCode(employee.employeeTypeCode())
                 + ", startDate=" + request.startDate()
                 + ", workCenterCode=" + request.workCenterCode()
+                ;
+    }
+
+    private static String summarizeWorkingTimeChangePayload(SyntheticEmployee employee, CreateWorkingTimeRequest request) {
+        return "operation=create"
+                + ", employeeNumber=" + employee.employeeNumber()
+                + ", ruleSystemCode=" + normalizeCode(employee.ruleSystemCode())
+                + ", employeeTypeCode=" + normalizeCode(employee.employeeTypeCode())
+                + ", startDate=" + request.startDate()
+                + ", workingTimePercentage=" + request.workingTimePercentage()
                 ;
     }
 

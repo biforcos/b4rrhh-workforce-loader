@@ -15,6 +15,7 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateCostCenterDistrib
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateLaborClassificationRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkCenterRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkingTimeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
@@ -220,6 +221,41 @@ class RunLifecycleSimulationServiceTest {
                 List.of(new SyntheticPersonalData.Contact("email", "ana.garcia@b4rrhh.example")),
                 List.of(new SyntheticPersonalData.Identifier("national_id", "00000001R", "esp", LocalDate.of(2030, 1, 1), true))
         );
+    }
+
+    // backend#74: el corte de jornada a mitad de mes lo pide el loader por API. Va como
+    // alta con su fecha de inicio y sin fin, igual que las otras cuatro verticales: cerrar
+    // la ventana anterior el dia de antes es cosa del backend (ADR-057).
+    @Test
+    void shouldAddTheMidMonthWorkingTimeChangeAsAnOpenWindow() {
+        SyntheticEmployee employee = syntheticEmployee(new BigDecimal("100"));
+        EmployeeLifecycleScenario scenario = new EmployeeLifecycleScenario(
+                employee,
+                List.of(
+                        new EmployeeLifecycleEvent(LifecycleEventType.HIRE, LocalDate.of(2024, 1, 10)),
+                        new EmployeeLifecycleEvent(LifecycleEventType.CHANGE_WORKING_TIME, LocalDate.of(2026, 9, 16),
+                                new WorkingTimeChangeEventPayload(new BigDecimal("50")))
+                ),
+                resolvedHireData(new BigDecimal("100")),
+                null,
+                "BAJA"
+        );
+
+        CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
+        RunLifecycleSimulationService service = new RunLifecycleSimulationService(
+                baseProperties(),
+                new FixedSyntheticEmployeeGenerator(List.of(employee)),
+                new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
+                client,
+                new CostCenterMutationGenerator(null, baseProperties())
+        );
+
+        LoaderRunSummary summary = service.run();
+
+        assertThat(summary.workingTimeChangesRequested()).isEqualTo(1);
+        assertThat(summary.workingTimeChangesSuccess()).isEqualTo(1);
+        assertThat(client.workingTimeRequests).containsExactly(
+                new CreateWorkingTimeRequest(LocalDate.of(2026, 9, 16), null, new BigDecimal("50")));
     }
 
     private static SyntheticEmployee syntheticEmployee(BigDecimal workingTimePercentage) {
@@ -541,6 +577,7 @@ class RunLifecycleSimulationServiceTest {
         private final List<String> personalDataEmployeeNumbers = new java.util.ArrayList<>();
         private final List<CapturedAbsence> absences = new java.util.ArrayList<>();
         private final List<CreateWorkCenterRequest> workCenterRequests = new java.util.ArrayList<>();
+        private final List<CreateWorkingTimeRequest> workingTimeRequests = new java.util.ArrayList<>();
         private final List<CreateContractRequest> contractRequests = new java.util.ArrayList<>();
         private final List<CreateLaborClassificationRequest> laborClassificationRequests = new java.util.ArrayList<>();
         private final List<CreateCostCenterDistributionRequest> costCenterRequests = new java.util.ArrayList<>();
@@ -597,6 +634,11 @@ class RunLifecycleSimulationServiceTest {
         @Override
         public void createWorkCenter(String ruleSystemCode, String employeeTypeCode, String employeeNumber, CreateWorkCenterRequest request) {
             workCenterRequests.add(request);
+        }
+
+        @Override
+        public void createWorkingTime(String ruleSystemCode, String employeeTypeCode, String employeeNumber, CreateWorkingTimeRequest request) {
+            workingTimeRequests.add(request);
         }
 
         @Override

@@ -93,6 +93,26 @@ loader:
     labor-classification-replace-rate: 0.25
     cost-center-replace-rate: 0.20
 
+  # El mes partido de la demo. Unos cuantos empleados cambian de jornada a mitad
+  # de mes para que los conceptos SEGMENT (ADR-058) tengan dos tramos con precio
+  # distinto: SALARIO_BASE sale en dos lineas y la base de cotizacion del mes es
+  # la suma de las dos, que es justo lo que backend#64 midio y no se podia
+  # ensenar sin un empleado asi.
+  #
+  # Esto lo hace el loader, por API, y NO una migracion. La V118 lo intentaba con
+  # un UPDATE sobre EMP001000 y no podia funcionar: Flyway corre al arrancar el
+  # backend y los empleados los crea el loader despues, asi que el UPDATE tocaba
+  # cero filas y la migracion terminaba en verde igual (backend#74).
+  #
+  # La fecha va escrita y no se saca del reloj, como el resto de la generacion:
+  # tiene que caer dentro del periodo que la demo calcula, y la misma semilla
+  # tiene que dar lo mismo cualquier dia.
+  working-time-change:
+    enabled: true
+    date: 2026-09-16
+    percentage: 50
+    employees: 5
+
   # Los centros salen del catalogo COST_CENTER del sistema de reglas; aqui solo
   # se apaga el reparto. Antes habia una lista de centros que nadie rellenaba y
   # con ella vacia no se generaba ni una fila (workforce-loader#5).
