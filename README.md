@@ -10,8 +10,21 @@ mvn spring-boot:run
 
 ## Dry-run
 
-Por defecto `loader.run.dry-run: true`, por lo que se generan empleados y payloads de hire sin invocar el backend.
-Para ejecutar llamadas reales, configurar `loader.run.dry-run: false` en `application.yml`.
+**`application.yml` trae hoy `loader.run.dry-run: false`: el loader ESCRIBE.** Un
+`mvn spring-boot:run` sin tocar nada da mil altas reales contra el backend al que apunte la
+configuracion.
+
+Este apartado decia lo contrario —«por defecto `true`, sin invocar el backend»— y esa frase es
+peligrosa de una forma concreta: alguien la lee, lanza el loader **para ver que pasaria**, y
+escribe. No es el escenario del `workforce-loader#8`, donde la guarda de la base avisa: aqui la
+escritura iria a la base correcta y el informe saldria perfecto (`b4rrhh/workspace#3`).
+
+Para no escribir, `loader.run.dry-run: true` en `application.yml`, o mejor en la linea de
+ordenes, que gana a todo y no depende de en que estado dejaste el fichero:
+
+```bash
+mvn spring-boot:run -Dspring-boot.run.arguments=--loader.run.dry-run=true
+```
 
 ## A que base escribe
 
