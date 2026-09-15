@@ -230,7 +230,15 @@ public class LoaderProperties {
         @NotNull
         private RunMode mode = RunMode.LIFECYCLE;
 
-        private boolean dryRun = false;
+        /**
+         * En seco, como el {@code application.yml} (workforce-loader#9).
+         *
+         * <p>Y aqui tambien, no solo alli: si algun dia falta la clave en el fichero —un perfil
+         * nuevo, un fichero recortado— el que decide es este valor. Un defecto que solo vive en
+         * la configuracion protege mientras nadie toque la configuracion, que es justo cuando
+         * hace falta.
+         */
+        private boolean dryRun = true;
 
         public RunMode getMode() {
             return mode;

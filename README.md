@@ -10,20 +10,31 @@ mvn spring-boot:run
 
 ## Dry-run
 
-**`application.yml` trae hoy `loader.run.dry-run: false`: el loader ESCRIBE.** Un
-`mvn spring-boot:run` sin tocar nada da mil altas reales contra el backend al que apunte la
-configuracion.
+**En seco por omision: un `mvn spring-boot:run` sin tocar nada NO escribe.** Recorre la
+simulacion entera, pide los catalogos al backend y saca su informe, pero no manda ni un alta.
 
-Este apartado decia lo contrario —«por defecto `true`, sin invocar el backend»— y esa frase es
-peligrosa de una forma concreta: alguien la lee, lanza el loader **para ver que pasaria**, y
-escribe. No es el escenario del `workforce-loader#8`, donde la guarda de la base avisa: aqui la
-escritura iria a la base correcta y el informe saldria perfecto (`b4rrhh/workspace#3`).
-
-Para no escribir, `loader.run.dry-run: true` en `application.yml`, o mejor en la linea de
-ordenes, que gana a todo y no depende de en que estado dejaste el fichero:
+Para escribir de verdad hace falta decirlo, y mejor en la linea de ordenes, que gana a todo y no
+depende de en que estado dejaste el fichero:
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.arguments=--loader.run.dry-run=true
+mvn spring-boot:run -Dspring-boot.run.arguments=--loader.run.dry-run=false
+```
+
+El defecto era `false` —o sea, escribia— y este apartado decia lo contrario durante meses. Lo
+que decide el cambio no es la simetria con el documento, que ya estaba arreglada, sino el
+reparto de costes (`workforce-loader#9`): con `false`, equivocarse cuesta una base escrita y una
+hora de reconstruirla; con `true`, una bandera que hay que volver a poner. **Cuando los dos
+errores no cuestan igual, el defecto va del lado barato.**
+
+Y la guarda del `workforce-loader#8` no cubria esto: comprueba **a donde** se escribe, no **si**
+se escribe. Con las expectativas bien puestas, una corrida que alguien creia en seco escribia mil
+empleados en la base correcta y el informe salia perfecto.
+
+**Un informe perfecto no prueba que haya escrito.** Lo prueba el recuento en la base:
+
+```bash
+docker exec b4rrhh-postgres psql -U b4rrhh -d <la base> -tAc \
+  'select count(*) from employee.employee'
 ```
 
 ## A que base escribe

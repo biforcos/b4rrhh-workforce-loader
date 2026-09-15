@@ -44,7 +44,23 @@ loader:
 
   run:
     mode: LIFECYCLE
-    dry-run: false
+    # En seco por omision, y no por simetria con la documentacion: por el
+    # reparto de costes (workforce-loader#9). Con false, equivocarse cuesta una
+    # base escrita y una hora de reconstruirla; con true cuesta una bandera que
+    # hay que volver a poner. Cuando los dos errores no cuestan igual, el
+    # defecto va del lado barato.
+    #
+    # Una corrida de verdad es un acto deliberado de todas formas —hay que
+    # rellenar expected.database y expected.employees a mano—, asi que la
+    # bandera no estorba a quien sabe lo que hace; estorbaba a quien no lo
+    # sabia. Y la guarda del workforce-loader#8 no cubre este caso: comprueba a
+    # DONDE se escribe, no SI se escribe, asi que con las expectativas bien
+    # puestas una corrida que alguien creia en seco escribe mil empleados en la
+    # base correcta y el informe sale perfecto.
+    #
+    # Para escribir de verdad, en la linea de ordenes, que gana a todo:
+    #   mvn spring-boot:run -Dspring-boot.run.arguments=--loader.run.dry-run=false
+    dry-run: true
 
   defaults:
     rule-system-code: ESP
