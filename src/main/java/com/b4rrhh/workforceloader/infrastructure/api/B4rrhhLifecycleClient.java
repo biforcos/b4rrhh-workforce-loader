@@ -3,6 +3,7 @@ package com.b4rrhh.workforceloader.infrastructure.api;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateAddressRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContactRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContractRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateEmployeePayrollInputRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateCostCenterDistributionRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateLaborClassificationRequest;
@@ -304,6 +305,28 @@ public class B4rrhhLifecycleClient {
                 employeeNumber,
                 absenceTypeCode,
                 startDate
+            );
+            }
+
+            /**
+             * Alta de una entrada de nomina. POST y no PUT: la clave es
+             * {@code (empleado, concepto, periodo)} y el backend contesta 409 si ya existe, que es
+             * lo correcto — una segunda declaracion de las mismas horas es un error de la corrida,
+             * no una correccion.
+             */
+            public void createPayrollInput(
+                String ruleSystemCode,
+                String employeeTypeCode,
+                String employeeNumber,
+                CreateEmployeePayrollInputRequest request
+            ) {
+            executePostWithoutResponse(
+                "payroll input create",
+                "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/payroll-inputs",
+                request,
+                ruleSystemCode,
+                employeeTypeCode,
+                employeeNumber
             );
             }
 

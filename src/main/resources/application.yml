@@ -129,6 +129,31 @@ loader:
     percentage: 50
     employees: 5
 
+  # Las horas extra de la demo: la tercera de las tres tablas vacias del
+  # workforce-loader#5, y la ultima que quedaba. Estuvo a cero a proposito desde
+  # septiembre: ningun concepto del motor declaraba EMPLOYEE_INPUT, asi que
+  # sembrarla habria metido filas con un codigo que no existia en ningun sitio.
+  # Lo declaro el b4rrhh/backend#104 —H01 son las horas, el 102 lo que se cobra
+  # por ellas— y con el llego tambien la regla que lo hacia posible: una linea
+  # de concepto a cero no se imprime, asi que declarar el concepto para todo el
+  # convenio no ensucia el recibo de quien no tiene horas.
+  #
+  # Solo una parte de la plantilla, y ese es el punto: un plus que cobran los mil
+  # no ensena nada que no ensene ya el salario base. concept_assignment no puede
+  # acotar por empleado —acota por sociedad, convenio y tipo—, asi que lo que
+  # distingue a unos de otros es tener fila aqui o no tenerla.
+  #
+  # El periodo va escrito y no sale del reloj, igual que la fecha del mes
+  # partido: una entrada en un mes que la demo no calcula no se ve en ninguna
+  # pantalla, y la misma semilla tiene que dar lo mismo cualquier dia.
+  payroll-input:
+    enabled: true
+    concept-code: H01
+    period: 202609
+    rate: 0.25
+    min-hours: 4
+    max-hours: 20
+
   # Los centros salen del catalogo COST_CENTER del sistema de reglas; aqui solo
   # se apaga el reparto. Antes habia una lista de centros que nadie rellenaba y
   # con ella vacia no se generaba ni una fila (workforce-loader#5).

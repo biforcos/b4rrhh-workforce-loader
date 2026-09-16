@@ -21,6 +21,7 @@ public class EmployeeLifecycleScenarioGenerator {
     private final LaborClassificationMutationGenerator laborClassificationMutationGenerator;
     private final CostCenterMutationGenerator costCenterMutationGenerator;
     private final AbsenceScenarioGenerator absenceScenarioGenerator;
+    private final PayrollInputScenarioGenerator payrollInputScenarioGenerator;
 
     public EmployeeLifecycleScenarioGenerator(
             LoaderProperties properties,
@@ -29,7 +30,8 @@ public class EmployeeLifecycleScenarioGenerator {
             ContractMutationGenerator contractMutationGenerator,
             LaborClassificationMutationGenerator laborClassificationMutationGenerator,
             CostCenterMutationGenerator costCenterMutationGenerator,
-            AbsenceScenarioGenerator absenceScenarioGenerator
+            AbsenceScenarioGenerator absenceScenarioGenerator,
+            PayrollInputScenarioGenerator payrollInputScenarioGenerator
     ) {
         this.properties = properties;
         this.hireReferenceDataResolver = hireReferenceDataResolver;
@@ -38,6 +40,7 @@ public class EmployeeLifecycleScenarioGenerator {
         this.laborClassificationMutationGenerator = laborClassificationMutationGenerator;
         this.costCenterMutationGenerator = costCenterMutationGenerator;
         this.absenceScenarioGenerator = absenceScenarioGenerator;
+        this.payrollInputScenarioGenerator = payrollInputScenarioGenerator;
     }
 
     public List<EmployeeLifecycleScenario> generate(List<SyntheticEmployee> employees) {
@@ -54,6 +57,12 @@ public class EmployeeLifecycleScenarioGenerator {
 
         LoaderProperties.WorkingTimeChange workingTimeChange = properties.getWorkingTimeChange();
         int workingTimeChangesPlanned = 0;
+
+        // Azar propio para las horas extra: gastar del comun desplazaria toda la secuencia
+        // posterior y la semilla entera cambiaria para anadir unas filas (workforce-loader#5).
+        LoaderProperties.PayrollInput payrollInput = properties.getPayrollInput();
+        Random payrollInputRandom = payrollInputScenarioGenerator.newRandom(
+                properties.getGeneration().getSeed());
 
         List<EmployeeLifecycleScenario> scenarios = new ArrayList<>(employees.size());
         for (SyntheticEmployee employee : employees) {
@@ -93,6 +102,8 @@ public class EmployeeLifecycleScenarioGenerator {
             addMutationEvents(events, activeWindows, simulation, random);
             events.addAll(absenceScenarioGenerator.generate(
                     activeWindows, simulationHorizon, referencePools.absenceTypes(), random));
+            events.addAll(payrollInputScenarioGenerator.generate(
+                    payrollInput, activeWindows, payrollInputRandom));
 
             if (workingTimeChangesPlanned < workingTimeChange.getEmployees()
                     && takesTheMidMonthWorkingTimeChange(workingTimeChange, activeWindows, resolvedHireData)) {
@@ -213,6 +224,14 @@ public class EmployeeLifecycleScenarioGenerator {
                 case ABSENCE -> {
                     // Ya viene con su carga: la planifico el generador de ausencias, dentro de un
                     // periodo de presencia. No toca el estado: nada posterior depende de ella.
+                    if (!state.isActive()) {
+                        continue;
+                    }
+                    planned.add(event);
+                }
+                case PAYROLL_INPUT -> {
+                    // Tambien viene con su carga. No toca el estado ni lo mira mas alla de estar
+                    // de alta: una entrada es del periodo y no cambia nada de la relacion.
                     if (!state.isActive()) {
                         continue;
                     }

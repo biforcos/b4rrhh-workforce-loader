@@ -20,6 +20,7 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeResponse;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateEmployeePayrollInputRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.UpsertAbsenceRequest;
 import com.b4rrhh.workforceloader.infrastructure.config.LoaderProperties;
 import com.b4rrhh.workforceloader.infrastructure.generator.SyntheticEmployeeGenerator;
@@ -98,6 +99,10 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         int absencesRequested = 0;
         int absencesSuccess = 0;
         int absencesFailed = 0;
+
+        int payrollInputsRequested = 0;
+        int payrollInputsSuccess = 0;
+        int payrollInputsFailed = 0;
 
         PersonalDataTally personalData = new PersonalDataTally();
 
@@ -232,6 +237,18 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                             absencesFailed++;
                         }
                     }
+                    case PAYROLL_INPUT -> {
+                        // Igual que la ausencia: se anota y el escenario sigue. Unas horas extra
+                        // que no entren dejan a esa persona sin la linea del 102 y ya esta
+                        // (workforce-loader#5).
+                        payrollInputsRequested++;
+                        outcome = executePlannedPayrollInput(employee, event, executionState);
+                        if (outcome.success()) {
+                            payrollInputsSuccess++;
+                        } else {
+                            payrollInputsFailed++;
+                        }
+                    }
                 }
 
                 results.add(new LifecycleEventExecutionResult(
@@ -280,6 +297,9 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                 absencesRequested,
                 absencesSuccess,
                 absencesFailed,
+                payrollInputsRequested,
+                payrollInputsSuccess,
+                payrollInputsFailed,
                 personalData.requested,
                 personalData.success,
                 personalData.failed,
@@ -725,6 +745,42 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                     request
             );
             return EventOutcome.success("Absence upsert call completed: " + absenceTypeCode);
+        } catch (Exception ex) {
+            return failureUnlessTheBackendIsWrong(ex);
+        }
+    }
+
+    private EventOutcome executePlannedPayrollInput(
+            SyntheticEmployee employee,
+            EmployeeLifecycleEvent event,
+            EmployeeExecutionState state
+    ) {
+        if (!state.isActive()) {
+            return EventOutcome.failure("Cannot register payroll input on inactive employee state");
+        }
+        if (!(event.payload() instanceof PayrollInputEventPayload payload)) {
+            return EventOutcome.failure("Missing PayrollInputEventPayload for PAYROLL_INPUT");
+        }
+
+        CreateEmployeePayrollInputRequest request = new CreateEmployeePayrollInputRequest(
+                normalizeCode(payload.conceptCode()), payload.period(), payload.quantity());
+
+        if (properties.getRun().isDryRun()) {
+            return EventOutcome.success("DRY-RUN payload -> " + summarizeEmployee(employee)
+                    + ", conceptCode=" + request.conceptCode()
+                    + ", period=" + request.period()
+                    + ", quantity=" + request.quantity());
+        }
+
+        try {
+            b4rrhhLifecycleClient.createPayrollInput(
+                    normalizeCode(employee.ruleSystemCode()),
+                    normalizeCode(employee.employeeTypeCode()),
+                    employee.employeeNumber(),
+                    request
+            );
+            return EventOutcome.success("Payroll input create call completed: " + request.conceptCode()
+                    + " " + request.period() + " = " + request.quantity());
         } catch (Exception ex) {
             return failureUnlessTheBackendIsWrong(ex);
         }

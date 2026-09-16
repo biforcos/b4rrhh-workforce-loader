@@ -48,6 +48,10 @@ public class LoaderProperties {
 
     @Valid
     @NotNull
+    private PayrollInput payrollInput = new PayrollInput();
+
+    @Valid
+    @NotNull
     private Filters filters = new Filters();
 
     public Backend getBackend() {
@@ -88,6 +92,14 @@ public class LoaderProperties {
 
     public void setCostCenter(CostCenter costCenter) {
         this.costCenter = costCenter;
+    }
+
+    public PayrollInput getPayrollInput() {
+        return payrollInput;
+    }
+
+    public void setPayrollInput(PayrollInput payrollInput) {
+        this.payrollInput = payrollInput;
     }
 
     public WorkingTimeChange getWorkingTimeChange() {
@@ -414,6 +426,101 @@ public class LoaderProperties {
      * ejercitar. Lo hace el loader por API y no una migracion: los empleados son suyos, y
      * un UPDATE escrito en una migracion se ejecuta antes de que exista nadie (backend#74).
      */
+    /**
+     * Las horas extra de la demo: una parte de la plantilla declara horas en el mes que se calcula
+     * (workforce-loader#5, b4rrhh/backend#104).
+     *
+     * <p>Es la tercera de las tres tablas vacias del issue. Estuvo a cero a proposito hasta que el
+     * motor tuvo un concepto {@code EMPLOYEE_INPUT} que las consumiera: sembrar antes habria sido
+     * inventar catalogo, que es lo que el issue deja fuera.
+     */
+    public static class PayrollInput {
+
+        private boolean enabled = true;
+
+        /**
+         * El concepto de entrada, el que declara la persona. {@code H01} (HORAS_EXTRA) lo siembra la
+         * V133 del backend; lo que se cobra por el es el {@code 102}, que se calcula solo.
+         *
+         * <p>Si un dia se quita del catalogo, el backend contesta y la corrida lo cuenta: una entrada
+         * con un codigo que nadie consume no rompe nada, y por eso <b>esto no lo puede comprobar el
+         * loader</b>. Lo que lo sujeta es el propio recibo.
+         */
+        @NotBlank
+        private String conceptCode = "H01";
+
+        /**
+         * El mes, en {@code yyyyMM}. Va escrito y no se saca del reloj, igual que la fecha del mes
+         * partido: una entrada en un mes que la demo no calcula no se ve en ninguna pantalla, y la
+         * misma semilla tiene que dar lo mismo cualquier dia.
+         */
+        private Integer period;
+
+        /**
+         * Que parte de la plantilla las declara. Un plus que cobran los mil no ensena nada; lo que
+         * hace que se lea como una plantilla real es que unos lo tengan y otros no.
+         */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double rate = 0.25;
+
+        /** Horas de menos, en horas enteras: una tarde larga. */
+        @Min(1)
+        private int minHours = 4;
+
+        /** Y de mas. Veinte horas es un mes cargado, no un mes imposible. */
+        @Min(1)
+        private int maxHours = 20;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getConceptCode() {
+            return conceptCode;
+        }
+
+        public void setConceptCode(String conceptCode) {
+            this.conceptCode = conceptCode;
+        }
+
+        public Integer getPeriod() {
+            return period;
+        }
+
+        public void setPeriod(Integer period) {
+            this.period = period;
+        }
+
+        public double getRate() {
+            return rate;
+        }
+
+        public void setRate(double rate) {
+            this.rate = rate;
+        }
+
+        public int getMinHours() {
+            return minHours;
+        }
+
+        public void setMinHours(int minHours) {
+            this.minHours = minHours;
+        }
+
+        public int getMaxHours() {
+            return maxHours;
+        }
+
+        public void setMaxHours(int maxHours) {
+            this.maxHours = maxHours;
+        }
+    }
+
     public static class WorkingTimeChange {
 
         private boolean enabled = true;

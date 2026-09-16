@@ -73,6 +73,61 @@ class EmployeeLifecycleScenarioGeneratorTest {
         assertThat(workingTimeChangeOf(generatorFor(disabled).generate(employees).getFirst())).isNull();
     }
 
+    /**
+     * Sembrar horas extra no mueve ni una coma del resto de la semilla (workforce-loader#5).
+     *
+     * <p>Es la razon de que el generador de horas extra lleve su propio {@code Random}. Si gastara
+     * del comun, cada tirada suya desplazaria la secuencia posterior y la semilla entera cambiaria
+     * —otras fechas de cese, otras ausencias, otras direcciones— para anadir unas filas. El
+     * diferencial contra la semilla de hoy tiene que ser exactamente lo que este cambio anade, o la
+     * resiembra no hay quien la revise.
+     *
+     * <p>Este test es el que se pone rojo si alguien «simplifica» pasandole el {@code random} de la
+     * simulacion.
+     */
+    @Test
+    void seedingOvertimeDoesNotMoveTheRestOfTheSeed() {
+        List<SyntheticEmployee> plantilla = new java.util.ArrayList<>();
+        for (int i = 1; i <= 40; i++) {
+            plantilla.add(employee(String.format("EMP%06d", i), LocalDate.of(2024, 1, 1).plusDays(i * 7L)));
+        }
+
+        LoaderProperties sinHoras = mutableProperties();
+        LoaderProperties conHoras = mutableProperties();
+        conHoras.getPayrollInput().setPeriod(202609);
+
+        List<EmployeeLifecycleScenario> antes = generatorFor(sinHoras).generate(plantilla);
+        List<EmployeeLifecycleScenario> despues = generatorFor(conHoras).generate(plantilla);
+
+        assertThat(sinEventosDeNomina(despues)).isEqualTo(sinEventosDeNomina(antes));
+        assertThat(despues.stream()
+                .flatMap(scenario -> scenario.events().stream())
+                .filter(event -> event.eventType() == LifecycleEventType.PAYROLL_INPUT)
+                .count())
+                .as("y el escenario nuevo si aparece, o este test no probaria nada")
+                .isPositive();
+    }
+
+    private static List<List<EmployeeLifecycleEvent>> sinEventosDeNomina(
+            List<EmployeeLifecycleScenario> scenarios) {
+        return scenarios.stream()
+                .map(scenario -> scenario.events().stream()
+                        .filter(event -> event.eventType() != LifecycleEventType.PAYROLL_INPUT)
+                        .toList())
+                .toList();
+    }
+
+    /** Como {@link #baseProperties()} pero con cese, readmision y mutaciones: una secuencia rica. */
+    private static LoaderProperties mutableProperties() {
+        LoaderProperties properties = baseProperties();
+        properties.getSimulation().setTerminateRate(0.6);
+        properties.getSimulation().setRehireRateOfTerminated(0.8);
+        properties.getSimulation().setWorkCenterChangeRate(0.35);
+        properties.getSimulation().setContractReplaceRate(0.25);
+        properties.getSimulation().setLaborClassificationReplaceRate(0.25);
+        return properties;
+    }
+
     private static LocalDate workingTimeChangeOf(EmployeeLifecycleScenario scenario) {
         return scenario.events().stream()
                 .filter(event -> event.eventType() == LifecycleEventType.CHANGE_WORKING_TIME)
@@ -90,7 +145,8 @@ class EmployeeLifecycleScenarioGeneratorTest {
                 new ContractMutationGenerator(),
                 new LaborClassificationMutationGenerator(),
                 new CostCenterMutationGenerator(null, properties),
-                new AbsenceScenarioGenerator()
+                new AbsenceScenarioGenerator(),
+                new PayrollInputScenarioGenerator()
         );
     }
 
@@ -141,8 +197,15 @@ class EmployeeLifecycleScenarioGeneratorTest {
                     List.of(new CatalogOption("MAD", "Madrid HQ")),
                     List.of(new CatalogOption("HIRING", "Hiring")),
                     List.of(new CatalogOption("BAJA", "Baja voluntaria")),
-                    List.of(),
-                    List.of(),
+                    // Con convenios y tipos de contrato, para que las sustituciones y la variacion
+                    // de la readmision tengan de donde elegir y gasten azar comun de verdad.
+                    List.of(new AgreementWithCategories(
+                            new CatalogOption("99002405011982", "Grandes almacenes"),
+                            List.of(new CatalogOption("99002405-G1", "Grupo I"),
+                                    new CatalogOption("99002405-G2", "Grupo II")))),
+                    List.of(new ContractTypeWithSubtypes(
+                            new CatalogOption("100", "Indefinido"),
+                            List.of(new CatalogOption("01", "Subtipo 01")))),
                     List.of()
             );
         }
@@ -161,6 +224,19 @@ class EmployeeLifecycleScenarioGeneratorTest {
         @Override
         public String resolveExitReasonFromPools(ResolvedHireReferencePools pools, Random random) {
             return "BAJA";
+        }
+
+        // La readmision pregunta por los centros de la sociedad, y eso va a la API. Aqui no hay
+        // API: se contesta lo mismo siempre, que para lo que se mide da igual cual sea.
+        @Override
+        public String resolveWorkCenterCodeForCompany(
+                String ruleSystemCode,
+                String companyCode,
+                LocalDate referenceDate,
+                String currentWorkCenterCode,
+                Random random
+        ) {
+            return "MAD";
         }
     }
 }

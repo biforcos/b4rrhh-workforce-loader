@@ -11,6 +11,7 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.CatalogOption;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateAddressRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContactRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateContractRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateEmployeePayrollInputRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateCostCenterDistributionRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateLaborClassificationRequest;
@@ -381,6 +382,49 @@ class RunLifecycleSimulationServiceTest {
                 .containsExactly("HIRE", "ABSENCE", "ABSENCE");
     }
 
+    /**
+     * Las horas extra planificadas salen por la API con su concepto, su periodo y su cantidad
+     * (workforce-loader#5).
+     *
+     * <p>Y el empleado va en la ruta, no en el cuerpo: la clave de una entrada es
+     * {@code (empleado, concepto, periodo)} y las tres piezas tienen que llegar donde el backend
+     * las espera. Un cuerpo bien formado en la ruta equivocada escribe las horas de otra persona.
+     */
+    @Test
+    void shouldSendEachPlannedOvertimeWithItsConceptPeriodAndQuantity() {
+        SyntheticEmployee employee = syntheticEmployee(new BigDecimal("75"));
+        EmployeeLifecycleScenario scenario = new EmployeeLifecycleScenario(
+                employee,
+                List.of(
+                        new EmployeeLifecycleEvent(LifecycleEventType.HIRE, LocalDate.of(2024, 1, 10)),
+                        new EmployeeLifecycleEvent(LifecycleEventType.PAYROLL_INPUT, LocalDate.of(2026, 9, 30),
+                                new PayrollInputEventPayload("H01", 202609, new BigDecimal("12")))
+                ),
+                resolvedHireData(new BigDecimal("75")),
+                null,
+                "BAJA"
+        );
+
+        CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
+        RunLifecycleSimulationService service = new RunLifecycleSimulationService(
+                baseProperties(),
+                new FixedSyntheticEmployeeGenerator(List.of(employee)),
+                new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
+                client,
+                new CostCenterMutationGenerator(null, baseProperties())
+        );
+
+        LoaderRunSummary summary = service.run();
+
+        assertThat(summary.payrollInputsRequested()).isEqualTo(1);
+        assertThat(summary.payrollInputsSuccess()).isEqualTo(1);
+        assertThat(client.payrollInputs).containsExactly(new CapturedPayrollInput(
+                "MAS000001",
+                new CreateEmployeePayrollInputRequest("H01", 202609, new BigDecimal("12"))));
+        assertThat(summary.results()).extracting(result -> result.eventType())
+                .containsExactly("HIRE", "PAYROLL_INPUT");
+    }
+
     @Test
     void shouldRecordARejectedAbsenceWithoutAbortingTheScenario() {
         SyntheticEmployee employee = syntheticEmployee(new BigDecimal("75"));
@@ -518,6 +562,9 @@ class RunLifecycleSimulationServiceTest {
     private record CapturedAbsence(String employeeNumber, String absenceTypeCode, LocalDate startDate, UpsertAbsenceRequest request) {
     }
 
+    private record CapturedPayrollInput(String employeeNumber, CreateEmployeePayrollInputRequest request) {
+    }
+
     private static final class FixedCatalogApiClient extends CatalogApiClient {
 
         private final List<CatalogOption> options;
@@ -556,7 +603,7 @@ class RunLifecycleSimulationServiceTest {
 
         private FixedScenarioGenerator(LoaderProperties properties, List<EmployeeLifecycleScenario> scenarios) {
             super(properties, null, null, null, null, new CostCenterMutationGenerator(null, properties),
-                    new AbsenceScenarioGenerator());
+                    new AbsenceScenarioGenerator(), new PayrollInputScenarioGenerator());
             this.scenarios = scenarios;
         }
 
@@ -576,6 +623,7 @@ class RunLifecycleSimulationServiceTest {
         private final List<CreateIdentifierRequest> identifierRequests = new java.util.ArrayList<>();
         private final List<String> personalDataEmployeeNumbers = new java.util.ArrayList<>();
         private final List<CapturedAbsence> absences = new java.util.ArrayList<>();
+        private final List<CapturedPayrollInput> payrollInputs = new java.util.ArrayList<>();
         private final List<CreateWorkCenterRequest> workCenterRequests = new java.util.ArrayList<>();
         private final List<CreateWorkingTimeRequest> workingTimeRequests = new java.util.ArrayList<>();
         private final List<CreateContractRequest> contractRequests = new java.util.ArrayList<>();
@@ -608,6 +656,16 @@ class RunLifecycleSimulationServiceTest {
                 throw new RuntimeException("absence rejected");
             }
             absences.add(new CapturedAbsence(employeeNumber, absenceTypeCode, startDate, request));
+        }
+
+        @Override
+        public void createPayrollInput(
+                String ruleSystemCode,
+                String employeeTypeCode,
+                String employeeNumber,
+                CreateEmployeePayrollInputRequest request
+        ) {
+            payrollInputs.add(new CapturedPayrollInput(employeeNumber, request));
         }
 
         @Override
