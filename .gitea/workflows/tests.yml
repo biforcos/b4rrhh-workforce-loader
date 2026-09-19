@@ -1,0 +1,105 @@
+# ============================================================
+#  Suite del workforce loader
+#
+#  ESTO NO DESPLIEGA NADA, y no es un descuido: es la unica cosa que hace.
+#  Los otros cinco repositorios construyen imagen y la suben porque sirven
+#  algo -una api, dos webs, una pila-. Esto es una herramienta que se ejecuta
+#  a mano contra una base cuando alguien decide fabricar una semilla, asi que
+#  no hay imagen que construir ni sitio al que salir. Darle un despliegue
+#  automatico seria inventarle un papel que no tiene. Por eso el fichero se
+#  llama tests.yml y no deploy.yml: el nombre dice lo que hay dentro.
+#
+#  Por que existe. Este repositorio fabrica la semilla, y su forma de fallar
+#  es la peor: la semilla no se rompe, SALE DISTINTA. Un defecto aqui no tumba
+#  nada -produce 873 recibos que parecen bien-, se captura en un volcado, y el
+#  volcado se convierte en la demo. Hasta el issue #10 los doce ficheros de
+#  test corrian cuando alguien se acordaba de correrlos, y la disciplina de
+#  quien empuja no sale en el git log.
+#
+#  Tampoco corre el loader contra ninguna base. Sembrar es un gesto que se
+#  decide, no que ocurre al empujar; eso lo hace el sembrar-demo.yml del
+#  repositorio deploy, y lo que se siembra alli es un volcado revisado.
+#
+#  Por que 'mvn -B test' basta y no 'verify'. Hoy el pom solo trae el
+#  spring-boot-maven-plugin, que ata su repackage a 'package'; failsafe esta
+#  declarado en el pluginManagement que hereda del parent pero no activado, y
+#  no hay un solo fichero *IT.java. O sea que despues de 'test' no espera
+#  ninguna comprobacion. Esto deja de ser verdad en cuanto aparezca un *IT o
+#  alguien ate un goal a 'verify' o a 'integration-test': ese dia esta linea
+#  pasa a ser 'mvn -B verify' y no hay mas que hablar.
+#
+#  Maven va en su propio contenedor y no en el del job, como en el backend:
+#  asi esto no depende de que la imagen del runner traiga un JDK 21.
+# ============================================================
+name: Pasar la suite
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  MVN: mvn-${{ github.sha }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      - name: Pasar la suite
+        run: |
+          docker rm -f -v "${{ env.MVN }}" 2>/dev/null || true
+
+          # TZ y no MAVEN_OPTS: Surefire forkea otro JVM que no hereda
+          # MAVEN_OPTS, asi que los tests correrian en UTC. Aqui se generan
+          # altas, ceses y ausencias con fechas, y una hora de diferencia entre
+          # tu maquina y el pipeline es un fallo que no se reproduce.
+          #
+          # Techos sobre lo que tiene la CT104 (8 hilos, 12 GB), donde vive
+          # tambien el Gitea que ensena si el pipeline va bien. Mas bajos que
+          # los del backend porque esta suite no levanta ningun Postgres: son
+          # 65 tests que no tocan ni red ni disco.
+          #
+          # JAVA_TOOL_OPTIONS y no MAVEN_OPTS, por lo mismo de arriba: el JVM lo
+          # lee del entorno al arrancar, asi que le llega al que forkea Surefire.
+          #
+          # El volumen del m2 es el mismo que usa el backend a proposito: las
+          # dependencias son casi las mismas y bajarlas dos veces seria tonto.
+          # Si algun dia dos pipelines de Maven corren a la vez y el repositorio
+          # local se estorba, se separan.
+          docker create \
+            --name "${{ env.MVN }}" \
+            --cpus 4 \
+            -m 3g \
+            -e JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=60 \
+            -e TZ=Europe/Madrid \
+            -v b4rrhh-m2:/root/.m2 \
+            -w /app \
+            maven:3.9-eclipse-temurin-21 \
+            mvn -B test
+
+          # docker cp y no un bind mount: el demonio es el de dind y no ve el
+          # disco de este contenedor, asi que el codigo hay que enviarselo.
+          #
+          # El "/." del final no es adorno. docker create -w /app ya ha creado
+          # /app, y contra un destino que existe "cp origen dest" copia la
+          # CARPETA dentro (/app/b4rrhh_workforce_loader/pom.xml). Con "/."
+          # copia su contenido.
+          docker cp "$GITHUB_WORKSPACE/." "${{ env.MVN }}":/app
+
+          # -a engancha la salida y devuelve el codigo de salida de Maven: si la
+          # suite falla, el paso falla. Que es todo el asunto.
+          docker start -a "${{ env.MVN }}"
+
+      - name: Recoger el contenedor
+        if: always()
+        run: |
+          # -v: sin el, "docker rm" deja vivo cualquier volumen anonimo del
+          # contenedor (b4rrhh/backend#13). El m2 es nombrado y no se toca.
+          #
+          # Aqui no se poda nada mas: este pipeline no construye ninguna imagen
+          # ni usa la cache de build, asi que no tiene nada suyo que limpiar.
+          docker rm -f -v "${{ env.MVN }}" 2>/dev/null || true
