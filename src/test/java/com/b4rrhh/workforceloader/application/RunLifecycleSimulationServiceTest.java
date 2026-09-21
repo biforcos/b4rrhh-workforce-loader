@@ -619,7 +619,7 @@ class RunLifecycleSimulationServiceTest {
     private static final class FixedHireWindowResolver extends HireWindowResolver {
 
         private FixedHireWindowResolver() {
-            super(baseProperties(), null, null);
+            super(baseProperties(), null);
         }
 
         @Override

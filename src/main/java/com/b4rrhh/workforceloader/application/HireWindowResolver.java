@@ -1,6 +1,5 @@
 package com.b4rrhh.workforceloader.application;
 
-import com.b4rrhh.workforceloader.infrastructure.api.CatalogApiClient;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CatalogOption;
 import com.b4rrhh.workforceloader.infrastructure.config.LoaderProperties;
 import org.slf4j.Logger;
@@ -8,9 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.TreeSet;
 
 /**
  * Desde cuándo se puede contratar de verdad, preguntándoselo al catálogo ({@code
@@ -35,24 +32,18 @@ import java.util.TreeSet;
  * <p>Así que esto <b>sondea</b>: propone una fecha, pide los catálogos dependientes con ella
  * y mira si contestan algo. Una respuesta vacía es la vigencia de la relación diciendo que no.
  *
- * <h2>Por qué una bisección y no una lista de fechas candidatas</h2>
+ * <h2>Aquí hubo una bisección, y el issue que la retiró</h2>
  *
- * <p>Porque probar sólo las fechas que el catálogo declara <b>no encuentra la respuesta</b>, y
- * está medido contra {@code ESP}: la relación convenio-categoría empieza el 2023-01-01 y ese
- * día no sale por ninguna parte de la API. El convenio arranca el 1980-01-01, los tipos de
- * contrato el 2022-03-30, y las categorías y los subtipos llegan con {@code startDate} nulo.
- * Se probaron las tres fechas declaradas, ninguna contestó, y la buena no estaba entre ellas —
- * que es justamente el motivo por el que esa vigencia no se puede deducir: no viaja.
+ * <p>Esto sondeaba: proponía una fecha, pedía los catálogos dependientes con ella y miraba si
+ * contestaban algo. Quince sondeos para cuarenta y seis años, porque la API servía las
+ * categorías y los subtipos con {@code startDate} nulo y <b>la fecha buena no salía por ningún
+ * sitio</b> — la relación convenio-categoría de {@code ESP} empieza el 2023-01-01 y ninguna de
+ * las tres fechas que la API declaraba era ésa.
  *
- * <p>Así que se busca por bisección entre la vigencia más antigua que el catálogo declara y el
- * final de la ventana. Son unos quince sondeos para cuarenta y seis años, y cada sondeo son
- * dos preguntas que el cliente ya cachea.
- *
- * <p><b>Lo que la bisección da por hecho</b>, dicho para que nadie lo descubra por las malas:
- * que una vez se puede contratar, se sigue pudiendo hasta el final de la ventana. Si una
- * vigencia se cerrara por el medio, esto encontraría el arranque del último tramo y no el del
- * primero. El final de la ventana se comprueba antes que nada por eso mismo: si ahí no se
- * puede contratar, no se busca nada y se para diciéndolo.
+ * <p>Era honesto y era absurdo, y así se dijo en el {@code b4rrhh/backend#115}. Desde ese issue
+ * cada opción trae la <b>intersección</b> de las tres vigencias —la del padre, la suya y la de
+ * la relación— y aquí sólo hay que leerla. Se queda escrito porque es la prueba de que la
+ * fecha se publica de verdad: el consumidor que tuvo que adivinarla ya no la adivina.
  */
 @Component
 public class HireWindowResolver {
@@ -61,16 +52,13 @@ public class HireWindowResolver {
 
     private final LoaderProperties properties;
     private final HireReferenceDataResolver hireReferenceDataResolver;
-    private final CatalogApiClient catalogApiClient;
 
     public HireWindowResolver(
             LoaderProperties properties,
-            HireReferenceDataResolver hireReferenceDataResolver,
-            CatalogApiClient catalogApiClient
+            HireReferenceDataResolver hireReferenceDataResolver
     ) {
         this.properties = properties;
         this.hireReferenceDataResolver = hireReferenceDataResolver;
-        this.catalogApiClient = catalogApiClient;
     }
 
     /**
@@ -156,100 +144,57 @@ public class HireWindowResolver {
 
     /**
      * El primer día en que hay convenio con categoría y tipo de contrato con subtipo, todo a la
-     * vez. {@code null} si ni siquiera el final de la ventana lo consigue.
+     * vez. {@code null} si el catálogo no lo dice.
+     *
+     * <p>Se lee, no se busca. Cada opción del catálogo trae desde el {@code b4rrhh/backend#115}
+     * su {@code startDate}, y no es la de la entidad: es la <b>intersección</b> de las tres
+     * vigencias, la del padre, la de la opción y la de la relación que las une. Esa tercera es
+     * la que decide y era la que no se publicaba.
+     *
+     * <p>La cuenta es la que pide la pregunta: hace falta <b>un</b> convenio con <b>alguna</b>
+     * categoría y <b>un</b> tipo de contrato con <b>algún</b> subtipo, así que de cada lado se
+     * coge la opción que antes empieza y de los dos lados, la que después.
      */
     private LocalDate firstHireableDate(String ruleSystemCode, LocalDate hasta) {
         ResolvedHireReferencePools pools = hireReferenceDataResolver.preloadPools(ruleSystemCode);
 
-        if (!seContrata(ruleSystemCode, pools, hasta)) {
+        LocalDate conCategoria = laQueAntesEmpieza(pools.agreementsWithCategories().stream()
+                .flatMap(convenio -> convenio.categories().stream())
+                .toList());
+        LocalDate conSubtipo = laQueAntesEmpieza(pools.contractTypesWithSubtypes().stream()
+                .flatMap(tipo -> tipo.subtypes().stream())
+                .toList());
+
+        if (conCategoria == null || conSubtipo == null) {
             return null;
         }
 
-        LocalDate desde = earliestDeclaredDate(pools, hasta);
-        if (seContrata(ruleSystemCode, pools, desde)) {
-            return desde;
-        }
-
-        // Invariante: en 'no' no se contrata y en 'si' si. Se estrecha hasta que sean
-        // consecutivos, y entonces 'si' es el primer dia bueno.
-        LocalDate no = desde;
-        LocalDate si = hasta;
-        while (ChronoUnit.DAYS.between(no, si) > 1) {
-            LocalDate medio = no.plusDays(ChronoUnit.DAYS.between(no, si) / 2);
-            if (seContrata(ruleSystemCode, pools, medio)) {
-                si = medio;
-            } else {
-                no = medio;
-            }
-        }
-        return si;
-    }
-
-    private boolean seContrata(String ruleSystemCode, ResolvedHireReferencePools pools, LocalDate fecha) {
-        return hayConvenioConCategoria(ruleSystemCode, pools, fecha)
-                && hayContratoConSubtipo(ruleSystemCode, pools, fecha);
+        LocalDate desde = conCategoria.isAfter(conSubtipo) ? conCategoria : conSubtipo;
+        return desde.isAfter(hasta) ? null : desde;
     }
 
     /**
-     * El suelo de la búsqueda: la vigencia más antigua que el catálogo declara.
+     * La opción que antes empieza, o {@code null} si alguna no lo dice.
      *
-     * <p>No es la respuesta —en {@code ESP} es el 1980-01-01, cuarenta y tres años antes de que
-     * se pueda contratar de verdad— pero es un suelo honesto: antes de que exista la primera
-     * pieza no puede funcionar nada. Sin ninguna fecha declarada el suelo es el final de la
-     * ventana, y entonces la bisección no llega a correr.
+     * <p><b>Un {@code startDate} nulo no se rellena con nada</b>, y por eso nulo se propaga en
+     * vez de ignorarse. Un nulo que significa «no lo sé» y un nulo que significa «desde
+     * siempre» son dos cosas distintas y la API no distingue cuál es; inventarse la segunda
+     * es cómo se vuelve a un resultado que parece bueno y no lo es.
      */
-    private LocalDate earliestDeclaredDate(ResolvedHireReferencePools pools, LocalDate hasta) {
-        TreeSet<LocalDate> fechas = new TreeSet<>();
-        for (AgreementWithCategories convenio : pools.agreementsWithCategories()) {
-            anadir(fechas, convenio.agreement(), hasta);
-            for (CatalogOption categoria : convenio.categories()) {
-                anadir(fechas, categoria, hasta);
+    private static LocalDate laQueAntesEmpieza(List<CatalogOption> opciones) {
+        if (opciones.isEmpty()) {
+            return null;
+        }
+        LocalDate antes = null;
+        for (CatalogOption opcion : opciones) {
+            if (opcion.startDate() == null) {
+                return null;
+            }
+            if (antes == null || opcion.startDate().isBefore(antes)) {
+                antes = opcion.startDate();
             }
         }
-        for (ContractTypeWithSubtypes tipo : pools.contractTypesWithSubtypes()) {
-            anadir(fechas, tipo.contractType(), hasta);
-            for (CatalogOption subtipo : tipo.subtypes()) {
-                anadir(fechas, subtipo, hasta);
-            }
-        }
-        return fechas.isEmpty() ? hasta : fechas.first();
-    }
-
-    private static void anadir(TreeSet<LocalDate> fechas, CatalogOption opcion, LocalDate hasta) {
-        LocalDate desde = opcion.startDate();
-        if (desde != null && !desde.isAfter(hasta)) {
-            fechas.add(desde);
-        }
-    }
-
-    private boolean hayConvenioConCategoria(
-            String ruleSystemCode, ResolvedHireReferencePools pools, LocalDate fecha) {
-        for (AgreementWithCategories convenio : pools.agreementsWithCategories()) {
-            if (!convenio.agreement().isVigenteEn(fecha)) {
-                continue;
-            }
-            List<CatalogOption> categorias =
-                    catalogApiClient.getAgreementCategories(ruleSystemCode, convenio.agreement().code(), fecha);
-            if (categorias != null && !categorias.isEmpty()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean hayContratoConSubtipo(
-            String ruleSystemCode, ResolvedHireReferencePools pools, LocalDate fecha) {
-        for (ContractTypeWithSubtypes tipo : pools.contractTypesWithSubtypes()) {
-            if (!tipo.contractType().isVigenteEn(fecha)) {
-                continue;
-            }
-            List<CatalogOption> subtipos =
-                    catalogApiClient.getContractSubtypes(ruleSystemCode, tipo.contractType().code(), fecha);
-            if (subtipos != null && !subtipos.isEmpty()) {
-                return true;
-            }
-        }
-        return false;
+        return antes;
     }
 
     private static String normalizeCode(String value) {
