@@ -10,8 +10,13 @@ This repository is an external CLI that fills an empty instance: it hires a whol
 workforce, terminates part of it, rehires some of those, and moves people between work
 centres, contracts and cost centres along the way — all of it through the same public API
 a person would use. Everything else — the other repositories and the documents they share
-— starts at **`b4rrhh/workspace`**, which is [`../README.md`](../README.md) once it is laid
-out beside this one.
+— starts at the workspace repository, which is
+[`../README.md`](../README.md) once it is laid out beside this one. **That repository is
+not mirrored to GitHub**, so if you arrived from
+[github.com/biforcos](https://github.com/biforcos) this page is the way in, and the
+siblings to lay out beside it are `b4rrhh-backend`, `b4rrhh-frontend`, `b4rrhh-designer`
+and `b4rrhh-workforce-loader`, cloned into `b4rrhh_backend`, `b4rrhh_frontend`,
+`b4rrhh_designer` and `b4rrhh_workforce_loader`.
 
 It **invents** the people it hires. It does not read a file, and there is no way to import
 a real workforce yet; that gap is written down in `PRODUCTO.md` §2 in the workspace root.
@@ -112,3 +117,11 @@ startup is not enough: the backend on the other side can be replaced mid-run.
 empty instance end to end — blank database, migrations, this loader, a full month
 calculated — and it states the row counts that have to come out. Its loader step already
 carries the flag.
+
+## Where the backlog is
+
+The threads that produced these decisions live in a **private Gitea** and are not
+mirrored: the Issues tab here is empty, and a `(#93)` or a `b4rrhh/backend#91` in a commit
+message points at something you cannot open from GitHub. It is a known limitation, and it
+leaves in reach the half that is worth more anyway — **the why is written inside the
+commit**, not behind the link.
