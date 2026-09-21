@@ -652,7 +652,9 @@ class RunLifecycleSimulationServiceTest {
 
         private FixedScenarioGenerator(LoaderProperties properties, List<EmployeeLifecycleScenario> scenarios) {
             super(properties, null, null, null, null, new CostCenterMutationGenerator(null, properties),
-                    new AbsenceScenarioGenerator(), new PayrollInputScenarioGenerator());
+                    new AbsenceScenarioGenerator(), new PayrollInputScenarioGenerator(),
+                    new ExtraPaymentRegimeScenarioGenerator(),
+                    (ruleSystemCode, agreementCode) -> false);
             this.scenarios = scenarios;
         }
 

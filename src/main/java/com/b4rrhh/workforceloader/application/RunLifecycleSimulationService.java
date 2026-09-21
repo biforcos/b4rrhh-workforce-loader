@@ -14,6 +14,7 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateIdentifierRequest
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateLaborClassificationRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkCenterRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkingTimeRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.UpdateExtraPaymentRegimeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
@@ -94,6 +95,10 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         int workingTimeChangesRequested = 0;
         int workingTimeChangesSuccess = 0;
         int workingTimeChangesFailed = 0;
+
+        int extraPaymentRegimeChangesRequested = 0;
+        int extraPaymentRegimeChangesSuccess = 0;
+        int extraPaymentRegimeChangesFailed = 0;
 
         int contractReplacementsRequested = 0;
         int contractReplacementsSuccess = 0;
@@ -237,6 +242,19 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                             scenarioCanContinue = false;
                         }
                     }
+                    case CHANGE_EXTRA_PAYMENT_REGIME -> {
+                        // Como la jornada: si no entra, el escenario se para. Un empleado al que
+                        // se le queda el regimen del convenio despues de haberlo elegido al reves
+                        // es un recibo que ensena lo contrario de lo que la demo dice.
+                        extraPaymentRegimeChangesRequested++;
+                        outcome = executePlannedExtraPaymentRegimeChange(employee, event, executionState);
+                        if (outcome.success()) {
+                            extraPaymentRegimeChangesSuccess++;
+                        } else {
+                            extraPaymentRegimeChangesFailed++;
+                            scenarioCanContinue = false;
+                        }
+                    }
                     case ABSENCE -> {
                         // Una ausencia rechazada se anota y el escenario sigue: ningun evento
                         // posterior depende de ella (workforce-loader#5).
@@ -296,6 +314,9 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                 workingTimeChangesRequested,
                 workingTimeChangesSuccess,
                 workingTimeChangesFailed,
+                extraPaymentRegimeChangesRequested,
+                extraPaymentRegimeChangesSuccess,
+                extraPaymentRegimeChangesFailed,
                 contractReplacementsRequested,
                 contractReplacementsSuccess,
                 contractReplacementsFailed,
@@ -659,6 +680,32 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         return outcome;
     }
 
+    private EventOutcome executePlannedExtraPaymentRegimeChange(
+            SyntheticEmployee employee,
+            EmployeeLifecycleEvent event,
+            EmployeeExecutionState state
+    ) {
+        if (!state.isActive()) {
+            return EventOutcome.failure("Cannot change extra payment regime on inactive employee state");
+        }
+        if (!(event.payload() instanceof ExtraPaymentRegimeChangeEventPayload payload)) {
+            return EventOutcome.failure(
+                    "Missing ExtraPaymentRegimeChangeEventPayload for CHANGE_EXTRA_PAYMENT_REGIME");
+        }
+
+        // La correccion deja las fechas como estan: el tramo lo abrio el alta o la readmision ese
+        // mismo dia y sigue abierto. Lo unico que cambia es el regimen.
+        UpdateExtraPaymentRegimeRequest request = new UpdateExtraPaymentRegimeRequest(
+                event.effectiveDate(), null, payload.prorated());
+
+        EventOutcome outcome = executeExtraPaymentRegimeChange(
+                employee, payload.extraPaymentRegimeNumber(), request);
+        if (outcome.success()) {
+            state.setLastEffectiveDate(event.effectiveDate());
+        }
+        return outcome;
+    }
+
     private EventOutcome executePlannedContractReplace(
             SyntheticEmployee employee,
             EmployeeLifecycleEvent event,
@@ -969,6 +1016,32 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                     request
             );
             return EventOutcome.success("Working time create call completed");
+        } catch (Exception ex) {
+            return failureUnlessTheBackendIsWrong(ex);
+        }
+    }
+
+    private EventOutcome executeExtraPaymentRegimeChange(
+            SyntheticEmployee employee,
+            int extraPaymentRegimeNumber,
+            UpdateExtraPaymentRegimeRequest request
+    ) {
+        if (properties.getRun().isDryRun()) {
+            return EventOutcome.success("DRY-RUN payload -> employeeNumber=" + employee.employeeNumber()
+                    + ", extraPaymentRegimeNumber=" + extraPaymentRegimeNumber
+                    + ", startDate=" + request.startDate()
+                    + ", prorated=" + request.prorated());
+        }
+
+        try {
+            b4rrhhLifecycleClient.correctExtraPaymentRegime(
+                    normalizeCode(employee.ruleSystemCode()),
+                    normalizeCode(employee.employeeTypeCode()),
+                    employee.employeeNumber(),
+                    extraPaymentRegimeNumber,
+                    request
+            );
+            return EventOutcome.success("Extra payment regime correct call completed");
         } catch (Exception ex) {
             return failureUnlessTheBackendIsWrong(ex);
         }

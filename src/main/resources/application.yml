@@ -128,6 +128,21 @@ loader:
     contract-replace-rate: 0.25
     labor-classification-replace-rate: 0.25
     cost-center-replace-rate: 0.20
+    # Que parte de la plantilla va en el regimen de pagas extras CONTRARIO al que
+    # dice su convenio (workforce-loader#13). El del convenio lo copia la
+    # contratacion sola (b4rrhh/backend#117 y #118); esto es la excepcion, y hace
+    # falta porque la invariante del paso 4 -la base no sabe si se pago- solo se
+    # puede ensenar con empleados de los dos lados: mismo salario, misma B_CC,
+    # distinto liquido.
+    #
+    # Uno de cada cuatro, y no la mitad: lo que se ensena es una minoria visible
+    # enfrente de la mayoria. Con dos mitades no se ve cual es el caso normal.
+    #
+    # No anade cortes al periodo: son correcciones de las filas que ya crean el
+    # alta y la readmision, con sus mismas fechas. Lo que parte un recibo en esta
+    # demo es el mes partido de la jornada, y confundir dos causas de tramos haria
+    # ilegible justo lo que el paso 4 quiere ensenar.
+    extras-prorrateadas-rate: 0.25
 
   # El mes partido de la demo. Unos cuantos empleados cambian de jornada a mitad
   # de mes para que los conceptos SEGMENT (ADR-058) tengan dos tramos con precio

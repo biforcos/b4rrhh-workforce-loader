@@ -2,6 +2,8 @@ package com.b4rrhh.workforceloader.application;
 
 import com.b4rrhh.workforceloader.domain.model.SyntheticEmployee;
 import com.b4rrhh.workforceloader.infrastructure.config.LoaderProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -14,6 +16,8 @@ import java.util.Random;
 @Component
 public class EmployeeLifecycleScenarioGenerator {
 
+    private static final Logger log = LoggerFactory.getLogger(EmployeeLifecycleScenarioGenerator.class);
+
     private final LoaderProperties properties;
     private final HireReferenceDataResolver hireReferenceDataResolver;
     private final WorkCenterMutationGenerator workCenterMutationGenerator;
@@ -22,6 +26,8 @@ public class EmployeeLifecycleScenarioGenerator {
     private final CostCenterMutationGenerator costCenterMutationGenerator;
     private final AbsenceScenarioGenerator absenceScenarioGenerator;
     private final PayrollInputScenarioGenerator payrollInputScenarioGenerator;
+    private final ExtraPaymentRegimeScenarioGenerator extraPaymentRegimeScenarioGenerator;
+    private final AgreementExtraPaymentProrationSource agreementProfileApiClient;
 
     public EmployeeLifecycleScenarioGenerator(
             LoaderProperties properties,
@@ -31,7 +37,9 @@ public class EmployeeLifecycleScenarioGenerator {
             LaborClassificationMutationGenerator laborClassificationMutationGenerator,
             CostCenterMutationGenerator costCenterMutationGenerator,
             AbsenceScenarioGenerator absenceScenarioGenerator,
-            PayrollInputScenarioGenerator payrollInputScenarioGenerator
+            PayrollInputScenarioGenerator payrollInputScenarioGenerator,
+            ExtraPaymentRegimeScenarioGenerator extraPaymentRegimeScenarioGenerator,
+            AgreementExtraPaymentProrationSource agreementProfileApiClient
     ) {
         this.properties = properties;
         this.hireReferenceDataResolver = hireReferenceDataResolver;
@@ -41,6 +49,8 @@ public class EmployeeLifecycleScenarioGenerator {
         this.costCenterMutationGenerator = costCenterMutationGenerator;
         this.absenceScenarioGenerator = absenceScenarioGenerator;
         this.payrollInputScenarioGenerator = payrollInputScenarioGenerator;
+        this.extraPaymentRegimeScenarioGenerator = extraPaymentRegimeScenarioGenerator;
+        this.agreementProfileApiClient = agreementProfileApiClient;
     }
 
     /**
@@ -69,6 +79,11 @@ public class EmployeeLifecycleScenarioGenerator {
         LoaderProperties.PayrollInput payrollInput = properties.getPayrollInput();
         Random payrollInputRandom = payrollInputScenarioGenerator.newRandom(
                 properties.getGeneration().getSeed());
+
+        // Y otro para el regimen de pagas extras, por lo mismo (workforce-loader#13).
+        Random extraPaymentRegimeRandom = extraPaymentRegimeScenarioGenerator.newRandom(
+                properties.getGeneration().getSeed());
+        int alRevesDelConvenio = 0;
 
         List<EmployeeLifecycleScenario> scenarios = new ArrayList<>(employees.size());
         for (SyntheticEmployee employee : employees) {
@@ -111,6 +126,20 @@ public class EmployeeLifecycleScenarioGenerator {
             events.addAll(payrollInputScenarioGenerator.generate(
                     payrollInput, properties.getPeriod(), activeWindows, payrollInputRandom));
 
+            // El regimen de pagas extras de quien va al reves del convenio. Son correcciones de
+            // las filas que crean el alta y la readmision, con sus mismas fechas: no anaden
+            // ningun corte al periodo (workforce-loader#13).
+            List<EmployeeLifecycleEvent> regimenes = extraPaymentRegimeScenarioGenerator.generate(
+                    simulation,
+                    agreementProfileApiClient.proratesExtraPaymentsByDefault(
+                            ruleSystemCode, resolvedHireData.agreementCode()),
+                    activeWindows,
+                    extraPaymentRegimeRandom);
+            if (!regimenes.isEmpty()) {
+                alRevesDelConvenio++;
+            }
+            events.addAll(regimenes);
+
             if (workingTimeChangesPlanned < workingTimeChange.getEmployees()
                     && takesTheMidMonthWorkingTimeChange(
                             workingTimeChange, corteDeMes, activeWindows, resolvedHireData)) {
@@ -121,6 +150,9 @@ public class EmployeeLifecycleScenarioGenerator {
                 workingTimeChangesPlanned++;
             }
 
+            // Estable: los eventos con la misma fecha conservan el orden en que se anadieron,
+            // que es lo que deja cada correccion de regimen detras del alta o la readmision que
+            // crea la fila que corrige.
             events.sort(Comparator.comparing(EmployeeLifecycleEvent::effectiveDate));
                 List<EmployeeLifecycleEvent> plannedEvents = addMutationPayloads(
                     events,
@@ -139,6 +171,10 @@ public class EmployeeLifecycleScenarioGenerator {
                     exitReasonCode
                 ));
         }
+
+        log.info("Regimen de pagas extras: {} de {} al reves de su convenio ({} %); el resto, el del convenio.",
+                alRevesDelConvenio, employees.size(),
+                Math.round(simulation.getExtrasProrrateadasRate() * 100));
 
         return scenarios;
     }
@@ -228,6 +264,16 @@ public class EmployeeLifecycleScenarioGenerator {
                             new WorkingTimeChangeEventPayload(properties.getWorkingTimeChange().getPercentage())
                     ));
                 }
+                case CHANGE_EXTRA_PAYMENT_REGIME -> {
+                    // Ya viene con su carga: el numero de la ocurrencia y el regimen. Va justo
+                    // detras del alta o de la readmision que creo esa ocurrencia, y no toca el
+                    // estado: corregir el regimen no cambia nada de lo que los demas eventos
+                    // miran.
+                    if (!state.isActive()) {
+                        continue;
+                    }
+                    planned.add(event);
+                }
                 case ABSENCE -> {
                     // Ya viene con su carga: la planifico el generador de ausencias, dentro de un
                     // periodo de presencia. No toca el estado: nada posterior depende de ella.
@@ -244,6 +290,16 @@ public class EmployeeLifecycleScenarioGenerator {
                     }
                     planned.add(event);
                 }
+                // Sin esto, un tipo de evento nuevo desaparece aqui EN SILENCIO: el generador lo
+                // planifica, este bucle no lo reconoce, y el escenario sale sin el. La corrida
+                // termina bien y el informe dice ``requested=0`` de algo que se habia pedido, que
+                // es exactamente lo que paso al anadir CHANGE_EXTRA_PAYMENT_REGIME
+                // (workforce-loader#13). Un switch de sentencia sobre un enum no obliga a
+                // cubrirlos todos; esto si.
+                default -> throw new IllegalStateException(
+                        "Evento planificado que este bucle no sabe llevar al escenario: "
+                                + event.eventType() + ". Anade su caso aqui o el evento se pierde"
+                                + " sin que nadie lo diga.");
             }
         }
 

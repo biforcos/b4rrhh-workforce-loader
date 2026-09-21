@@ -728,6 +728,26 @@ public class LoaderProperties {
         @DecimalMax("1.0")
         private double costCenterReplaceRate = 0.20;
 
+        /**
+         * Que parte de la plantilla va en el regimen de pagas extras CONTRARIO al del convenio
+         * ({@code workforce-loader#13}).
+         *
+         * <p>Uno de cada cuatro, y no la mitad: lo que la demo ensena es que la base no sabe si se
+         * pago, y para eso hace falta una minoria visible enfrente de la mayoria, no dos mitades
+         * que no dejan ver cual es el caso normal.
+         */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double extrasProrrateadasRate = 0.25;
+
+        public double getExtrasProrrateadasRate() {
+            return extrasProrrateadasRate;
+        }
+
+        public void setExtrasProrrateadasRate(double extrasProrrateadasRate) {
+            this.extrasProrrateadasRate = extrasProrrateadasRate;
+        }
+
         public double getTerminateRate() {
             return terminateRate;
         }

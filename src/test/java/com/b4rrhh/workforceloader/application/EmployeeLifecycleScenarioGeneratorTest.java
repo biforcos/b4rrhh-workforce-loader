@@ -56,6 +56,52 @@ class EmployeeLifecycleScenarioGeneratorTest {
                         .isEqualTo(new WorkingTimeChangeEventPayload(new BigDecimal("50"))));
     }
 
+    /**
+     * La correccion de regimen de pagas extras llega al escenario, y no se queda por el camino.
+     *
+     * <p>Es el defecto que este test existe para impedir y que costo una corrida entera: el
+     * generador planificaba 247 correcciones, {@code addMutationPayloads} no reconocia el tipo de
+     * evento nuevo, y su {@code switch} de sentencia —que sobre un enum no obliga a cubrirlos
+     * todos— <b>lo tiraba en silencio</b>. La corrida terminaba en verde y el informe decia
+     * {@code requested=0} de algo que se habia pedido ({@code workforce-loader#13}).
+     *
+     * <p>Se mira sobre el escenario y no sobre la lista de eventos planificados a proposito: el
+     * escenario es lo que el ejecutor recibe, y era justo ahi donde se perdia.
+     */
+    @Test
+    void theExtraPaymentRegimeCorrectionSurvivesIntoTheScenario() {
+        LoaderProperties todos = baseProperties();
+        todos.getSimulation().setExtrasProrrateadasRate(1.0);
+
+        List<EmployeeLifecycleScenario> scenarios = generatorFor(todos).generate(List.of(
+                employee("EMP000001", LocalDate.of(2024, 1, 10))
+        ), VENTANA, CORTE);
+
+        assertThat(scenarios.getFirst().events())
+                .filteredOn(event -> event.eventType() == LifecycleEventType.CHANGE_EXTRA_PAYMENT_REGIME)
+                .isNotEmpty()
+                .allSatisfy(event -> assertThat(event.payload())
+                        .isInstanceOf(ExtraPaymentRegimeChangeEventPayload.class)
+                        .extracting(payload -> ((ExtraPaymentRegimeChangeEventPayload) payload).prorated())
+                        .as("el convenio de este test no prorratea, asi que la excepcion es prorratear")
+                        .isEqualTo(true));
+    }
+
+    /** Y a quien no le toca, no le llega ninguna. */
+    @Test
+    void whoeverIsNotPickedKeepsTheAgreementRegimeAndGetsNoEvent() {
+        LoaderProperties ninguno = baseProperties();
+        ninguno.getSimulation().setExtrasProrrateadasRate(0.0);
+
+        List<EmployeeLifecycleScenario> scenarios = generatorFor(ninguno).generate(List.of(
+                employee("EMP000001", LocalDate.of(2024, 1, 10))
+        ), VENTANA, CORTE);
+
+        assertThat(scenarios.getFirst().events())
+                .filteredOn(event -> event.eventType() == LifecycleEventType.CHANGE_EXTRA_PAYMENT_REGIME)
+                .isEmpty();
+    }
+
     // Quien entra a mitad de mes no parte nada: su primer tramo empezaria el dia del alta y el
     // mes no quedaria dividido en dos, que es justo lo que hay que ensenar (ADR-058).
     @Test
@@ -162,7 +208,10 @@ class EmployeeLifecycleScenarioGeneratorTest {
                 new LaborClassificationMutationGenerator(),
                 new CostCenterMutationGenerator(null, properties),
                 new AbsenceScenarioGenerator(),
-                new PayrollInputScenarioGenerator()
+                new PayrollInputScenarioGenerator(),
+                new ExtraPaymentRegimeScenarioGenerator(),
+                // El convenio de la demo no prorratea; lo que el loader siembra es la excepcion.
+                (ruleSystemCode, agreementCode) -> false
         );
     }
 

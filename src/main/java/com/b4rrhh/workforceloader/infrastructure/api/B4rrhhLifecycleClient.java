@@ -11,6 +11,7 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.HireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkCenterRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.CreateWorkingTimeRequest;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.UpdateExtraPaymentRegimeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeRequest;
@@ -187,6 +188,31 @@ public class B4rrhhLifecycleClient {
                 ruleSystemCode,
                 employeeTypeCode,
                 employeeNumber
+            );
+            }
+
+            /**
+             * Corrige un tramo de regimen de pagas extras: sus fechas se quedan como estan y
+             * cambia el regimen ({@code b4rrhh/backend#118}). No se anade una ocurrencia porque
+             * la contratacion ya creo la que empieza ese dia.
+             */
+            public void correctExtraPaymentRegime(
+                String ruleSystemCode,
+                String employeeTypeCode,
+                String employeeNumber,
+                int extraPaymentRegimeNumber,
+                UpdateExtraPaymentRegimeRequest request
+            ) {
+            executeWithoutResponse(
+                "extra payment regime correct",
+                webClient.put(),
+                "/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}"
+                        + "/extra-payment-regimes/{extraPaymentRegimeNumber}",
+                request,
+                ruleSystemCode,
+                employeeTypeCode,
+                employeeNumber,
+                extraPaymentRegimeNumber
             );
             }
 

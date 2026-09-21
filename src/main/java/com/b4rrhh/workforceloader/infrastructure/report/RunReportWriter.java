@@ -27,6 +27,10 @@ public class RunReportWriter {
             summary.workingTimeChangesRequested(),
             summary.workingTimeChangesSuccess(),
             summary.workingTimeChangesFailed());
+        log.info("Extra payment regime changes (against the agreement default): requested={} success={} failed={}",
+            summary.extraPaymentRegimeChangesRequested(),
+            summary.extraPaymentRegimeChangesSuccess(),
+            summary.extraPaymentRegimeChangesFailed());
         log.info("Contract replacements: requested={} success={} failed={}",
             summary.contractReplacementsRequested(),
             summary.contractReplacementsSuccess(),
@@ -69,6 +73,7 @@ public class RunReportWriter {
             + summary.rehiresFailed()
             + summary.workCenterChangesFailed()
             + summary.workingTimeChangesFailed()
+            + summary.extraPaymentRegimeChangesFailed()
             + summary.contractReplacementsFailed()
             + summary.laborClassificationReplacementsFailed()
             + summary.costCenterReplacementsFailed()
