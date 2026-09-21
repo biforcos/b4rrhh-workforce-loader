@@ -79,21 +79,22 @@ loader:
     seed: 12345
     employee-number-prefix: EMP
     employee-number-padding: 6
-    # NO es una fecha puesta a ojo: es el dia desde el que el sistema de reglas
-    # ESP soporta contratar de verdad, y esta medido.
+    # hire-date-from NO ESTA, y esa ausencia es la configuracion: la pone el
+    # catalogo (workforce-loader#1).
     #
-    # Los tipos de contrato de la reforma laboral arrancan el 2022-03-30
-    # (RDL 32/2021), pero la relacion entre el convenio de grandes almacenes y
-    # sus categorias no entra en vigor hasta el 2023-01-01. Antes de esa fecha
-    # el backend rechaza el alta con INVALID_CATALOG_VALUE, y hace bien: esa
-    # combinacion no existia.
+    # Aqui decia 2023-01-01. No era una fecha puesta a ojo -es el primer dia con
+    # convenio, categoria, tipo de contrato y subtipo simultaneamente vigentes en
+    # ESP, y estaba medida-, pero era un numero magico acoplado a las semillas: el
+    # dia que una migracion mueva esa vigencia, el YAML sigue diciendo 2023 y nadie
+    # se entera.
     #
-    # Si algun dia se siembran los codigos anteriores a la reforma con su
-    # caducidad, esta fecha se puede bajar. Se comprueba asi, buscando el primer
-    # dia que devuelva algo:
-    #   GET /labor-classification-catalog/agreement-categories
-    #       ?ruleSystemCode=ESP&agreementCode=<convenio>&referenceDate=<fecha>
-    hire-date-from: 2023-01-01
+    # Ahora el loader sondea el catalogo por las fechas de vigencia que el propio
+    # catalogo declara y arranca en la primera que conteste. Lo dice al empezar:
+    #   Ventana de contratacion deducida del catalogo de ESP: desde 2023-01-01.
+    #
+    # Se puede volver a poner, y entonces manda ella -es una decision explicita y
+    # no se pisa-, pero el loader avisa si el catalogo dice otra cosa. Que es lo
+    # que antes no pasaba.
     hire-date-to: 2026-05-01
     working-time-percentage: 100
 

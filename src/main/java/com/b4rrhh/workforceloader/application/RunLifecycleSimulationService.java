@@ -40,26 +40,32 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
     private final EmployeeLifecycleScenarioGenerator scenarioGenerator;
     private final B4rrhhLifecycleClient b4rrhhLifecycleClient;
     private final CostCenterMutationGenerator costCenterMutationGenerator;
+    private final HireWindowResolver hireWindowResolver;
 
     public RunLifecycleSimulationService(
             LoaderProperties properties,
             SyntheticEmployeeGenerator syntheticEmployeeGenerator,
             EmployeeLifecycleScenarioGenerator scenarioGenerator,
             B4rrhhLifecycleClient b4rrhhLifecycleClient,
-            CostCenterMutationGenerator costCenterMutationGenerator
+            CostCenterMutationGenerator costCenterMutationGenerator,
+            HireWindowResolver hireWindowResolver
     ) {
         this.properties = properties;
         this.syntheticEmployeeGenerator = syntheticEmployeeGenerator;
         this.scenarioGenerator = scenarioGenerator;
         this.b4rrhhLifecycleClient = b4rrhhLifecycleClient;
         this.costCenterMutationGenerator = costCenterMutationGenerator;
+        this.hireWindowResolver = hireWindowResolver;
     }
 
     @Override
     public LoaderRunSummary run() {
-        validateConfiguration();
+        // Primero la ventana y luego la validacion, porque hasta que el catalogo no contesta
+        // no hay fecha de arranque que validar (workforce-loader#1).
+        LocalDate hireDateFrom = hireWindowResolver.resolve();
+        validateConfiguration(hireDateFrom);
 
-        List<SyntheticEmployee> employees = syntheticEmployeeGenerator.generateEmployees();
+        List<SyntheticEmployee> employees = syntheticEmployeeGenerator.generateEmployees(hireDateFrom);
         List<EmployeeLifecycleScenario> scenarios = scenarioGenerator.generate(employees);
 
         List<LifecycleEventExecutionResult> results = new ArrayList<>();
@@ -1067,10 +1073,11 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         return new Random(seed + employeeHash + salt);
     }
 
-    private void validateConfiguration() {
+    private void validateConfiguration(LocalDate hireDateFrom) {
         LoaderProperties.Generation generation = properties.getGeneration();
-        if (generation.getHireDateFrom().isAfter(generation.getHireDateTo())) {
-            throw new IllegalArgumentException("Invalid date range: loader.generation.hire-date-from must be <= hire-date-to");
+        if (hireDateFrom.isAfter(generation.getHireDateTo())) {
+            throw new IllegalArgumentException("Invalid date range: hire window start " + hireDateFrom
+                    + " must be <= loader.generation.hire-date-to " + generation.getHireDateTo());
         }
 
         LoaderProperties.Simulation simulation = properties.getSimulation();

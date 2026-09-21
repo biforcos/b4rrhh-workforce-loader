@@ -58,7 +58,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(null, baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties()),
+                new FixedHireWindowResolver()
         );
 
         LoaderRunSummary summary = service.run();
@@ -94,7 +95,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(null, baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties()),
+                new FixedHireWindowResolver()
         );
 
         LoaderRunSummary summary = service.run();
@@ -127,7 +129,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(null, baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties()),
+                new FixedHireWindowResolver()
         );
 
         LoaderRunSummary summary = service.run();
@@ -161,7 +164,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(null, baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties()),
+                new FixedHireWindowResolver()
         );
 
         LoaderRunSummary summary = service.run();
@@ -198,7 +202,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(null, baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties()),
+                new FixedHireWindowResolver()
         );
 
         LoaderRunSummary summary = service.run();
@@ -248,7 +253,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(null, baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties()),
+                new FixedHireWindowResolver()
         );
 
         LoaderRunSummary summary = service.run();
@@ -325,7 +331,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(properties, List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(new FixedCatalogApiClient(properties, "CC_ADMIN", "CC_HR"), properties)
+                new CostCenterMutationGenerator(new FixedCatalogApiClient(properties, "CC_ADMIN", "CC_HR"), properties),
+                new FixedHireWindowResolver()
         );
 
         LoaderRunSummary summary = service.run();
@@ -367,7 +374,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(null, baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties()),
+                new FixedHireWindowResolver()
         );
 
         LoaderRunSummary summary = service.run();
@@ -411,7 +419,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(null, baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties()),
+                new FixedHireWindowResolver()
         );
 
         LoaderRunSummary summary = service.run();
@@ -448,7 +457,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(null, baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties()),
+                new FixedHireWindowResolver()
         );
 
         LoaderRunSummary summary = service.run();
@@ -496,7 +506,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(null, baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties()),
+                new FixedHireWindowResolver()
         );
 
         LoaderRunSummary summary = service.run();
@@ -544,7 +555,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedSyntheticEmployeeGenerator(List.of(employee)),
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
-                new CostCenterMutationGenerator(null, baseProperties())
+                new CostCenterMutationGenerator(null, baseProperties()),
+                new FixedHireWindowResolver()
         );
 
         LoaderRunSummary summary = service.run();
@@ -592,8 +604,27 @@ class RunLifecycleSimulationServiceTest {
         }
 
         @Override
-        public List<SyntheticEmployee> generateEmployees() {
+        public List<SyntheticEmployee> generateEmployees(java.time.LocalDate hireDateFrom) {
             return employees;
+        }
+    }
+
+    /**
+     * La ventana ya resuelta, sin catalogo detras.
+     *
+     * <p>Desde el {@code workforce-loader#1} el servicio le pregunta al catalogo desde cuando
+     * se puede contratar. Estos tests no traen catalogo y no van de eso: le dan la respuesta
+     * hecha, que es la misma que trae {@code baseProperties()}.
+     */
+    private static final class FixedHireWindowResolver extends HireWindowResolver {
+
+        private FixedHireWindowResolver() {
+            super(baseProperties(), null, null);
+        }
+
+        @Override
+        public LocalDate resolve() {
+            return baseProperties().getGeneration().getHireDateFrom();
         }
     }
 

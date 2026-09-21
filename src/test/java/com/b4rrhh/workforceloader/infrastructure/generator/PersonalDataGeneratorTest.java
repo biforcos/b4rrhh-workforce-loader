@@ -25,6 +25,16 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class PersonalDataGeneratorTest {
 
+    /**
+     * La ventana que estos tests usaban, ahora escrita.
+     *
+     * <p>Era el valor por omision de {@code hire-date-from}, que el
+     * {@code workforce-loader#1} retiro: ahora la ventana la pone el catalogo y, sin
+     * catalogo, hay que decirla. Se deja la misma para que la plantilla generada aqui
+     * siga siendo exactamente la de antes.
+     */
+    private static final java.time.LocalDate VENTANA_DESDE = java.time.LocalDate.now().minusMonths(3);
+
     private static final String DNI_LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE";
 
     private static List<SyntheticEmployee> plantilla() {
@@ -34,7 +44,7 @@ class PersonalDataGeneratorTest {
         properties.getGeneration().setWorkingTimePercentage(new BigDecimal("100"));
         properties.getDefaults().setRuleSystemCode("esp");
         properties.getDefaults().setEmployeeTypeCode("internal");
-        return new SyntheticEmployeeGenerator(properties).generateEmployees();
+        return new SyntheticEmployeeGenerator(properties).generateEmployees(VENTANA_DESDE);
     }
 
     @Test

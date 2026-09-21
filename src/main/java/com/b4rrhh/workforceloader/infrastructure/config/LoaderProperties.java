@@ -282,8 +282,16 @@ public class LoaderProperties {
         @Min(1)
         private int employeeNumberPadding = 6;
 
-        @NotNull
-        private LocalDate hireDateFrom = LocalDate.now().minusMonths(3);
+        /**
+         * Desde cuando se contrata. <b>Puede faltar</b>: si falta, la pone el catalogo
+         * ({@code HireWindowResolver}, {@code workforce-loader#1}).
+         *
+         * <p>Dejo de ser obligatoria y dejo de tener valor por omision a la vez, y las dos
+         * cosas por el mismo motivo: un {@code now().minusMonths(3)} es una fecha que parece
+         * razonable y no esta medida contra nada, asi que taparia justo el caso en el que
+         * hace falta preguntar.
+         */
+        private LocalDate hireDateFrom;
 
         @NotNull
         private LocalDate hireDateTo = LocalDate.now();
