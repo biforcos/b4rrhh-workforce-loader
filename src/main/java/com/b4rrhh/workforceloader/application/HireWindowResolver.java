@@ -74,15 +74,59 @@ public class HireWindowResolver {
     }
 
     /**
-     * La fecha desde la que se generan altas.
+     * La ventana entera, con sus dos extremos resueltos y dichos.
      *
-     * <p>Si está configurada, manda la configurada: es una decisión explícita y no se pisa.
-     * Pero se compara con la del catálogo y <b>se dice si no coinciden</b>, que es justo lo que
-     * no pasaba — el YAML podía quedarse viejo en silencio.
+     * <p>Si alguno está configurado, manda el configurado: es una decisión explícita y no se
+     * pisa. Pero se compara con lo que sale del catálogo o del período y <b>se dice si no
+     * coinciden</b>, que es justo lo que no pasaba — el YAML podía quedarse viejo en silencio.
      */
-    public LocalDate resolve() {
+    public HireWindow resolve() {
+        LocalDate hasta = resolveHasta();
+        LocalDate desde = resolveDesde(hasta);
+
+        log.info("Ventana de contratacion: desde {} hasta {}.", desde, hasta);
+        return new HireWindow(desde, hasta);
+    }
+
+    /**
+     * El final de la ventana: el día antes del período que la demo calcula
+     * ({@code workforce-loader#11}).
+     *
+     * <p>Aquí había un {@code 2026-05-01} escrito a mano que nadie explicaba. Medido en el
+     * historial: entró el 2026-05-10 en un commit sobre filtros, sustituyendo a un
+     * {@code 2026-03-31} que había entrado el 2026-04-05. Las dos son «hoy, redondeado», y
+     * ninguna puede derivar del período — {@code 202609} no existía en el fichero hasta el
+     * 2026-09-16, cuatro meses después.
+     *
+     * <p>Así que era «hoy». Y «hoy» es exactamente lo que este fichero prohíbe para las otras
+     * dos fechas que dependen del período, por el mismo motivo: la misma semilla tiene que dar
+     * lo mismo cualquier día. Por eso no se deja caer al {@code now()} del código, se deriva.
+     */
+    private LocalDate resolveHasta() {
+        LocalDate configurada = properties.getGeneration().getHireDateTo();
+        LocalDate delPeriodo = properties.hireDateToFromPeriod();
+
+        if (configurada == null) {
+            if (delPeriodo == null) {
+                throw new IllegalStateException(
+                        "No hay de donde sacar el final de la ventana de contratacion: declara"
+                                + " loader.period (el mes que se calcula, en yyyyMM) o"
+                                + " loader.generation.hire-date-to. No se usa la fecha de hoy a"
+                                + " proposito: la misma semilla tiene que dar lo mismo cualquier dia.");
+            }
+            return delPeriodo;
+        }
+
+        if (delPeriodo != null && !configurada.equals(delPeriodo)) {
+            log.warn("hire-date-to={} configurada a mano, pero del periodo {} sale {}. Se usa la"
+                    + " configurada; quitala del application.yml para que la ponga el periodo.",
+                    configurada, properties.getPeriod(), delPeriodo);
+        }
+        return configurada;
+    }
+
+    private LocalDate resolveDesde(LocalDate hasta) {
         String ruleSystemCode = normalizeCode(properties.getDefaults().getRuleSystemCode());
-        LocalDate hasta = properties.getGeneration().getHireDateTo();
         LocalDate configurada = properties.getGeneration().getHireDateFrom();
 
         LocalDate delCatalogo = firstHireableDate(ruleSystemCode, hasta);
@@ -95,8 +139,6 @@ public class HireWindowResolver {
                                 + " categoria, tipo de contrato y subtipo a la vez."
                                 + " Pon loader.generation.hire-date-from a mano.");
             }
-            log.info("Ventana de contratacion deducida del catalogo de {}: desde {}.",
-                    ruleSystemCode, delCatalogo);
             return delCatalogo;
         }
 

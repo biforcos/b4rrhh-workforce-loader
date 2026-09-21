@@ -33,7 +33,7 @@ class HireWindowResolverTest {
     void withNothingConfiguredTheWindowStartsWhereTheCatalogueSaysItCan() {
         CatalogoDePrueba catalogo = new CatalogoDePrueba(CATEGORIAS_DESDE);
 
-        assertThat(resolver(null, catalogo).resolve()).isEqualTo(CATEGORIAS_DESDE);
+        assertThat(resolver(null, catalogo).resolve().desde()).isEqualTo(CATEGORIAS_DESDE);
     }
 
     /**
@@ -48,7 +48,7 @@ class HireWindowResolverTest {
     void theAnswerIsADateTheCatalogueNeverDeclares() {
         CatalogoDePrueba catalogo = new CatalogoDePrueba(CATEGORIAS_DESDE);
 
-        LocalDate ventana = resolver(null, catalogo).resolve();
+        LocalDate ventana = resolver(null, catalogo).resolve().desde();
 
         // Las unicas fechas que este catalogo declara son la del convenio y la del tipo de
         // contrato, como en ESP: las categorias y los subtipos llegan sin fechas. El
@@ -66,7 +66,32 @@ class HireWindowResolverTest {
     void movingTheRelationForwardMovesTheWindowWithoutTouchingAnything() {
         CatalogoDePrueba catalogo = new CatalogoDePrueba(CONTRATOS_DESDE);
 
-        assertThat(resolver(null, catalogo).resolve()).isEqualTo(CONTRATOS_DESDE);
+        assertThat(resolver(null, catalogo).resolve().desde()).isEqualTo(CONTRATOS_DESDE);
+    }
+
+    /**
+     * El final de la ventana sale del período ({@code workforce-loader#11}).
+     *
+     * <p>El día antes del mes que se calcula, para que ninguna alta caiga dentro. Aquí había un
+     * {@code 2026-05-01} escrito a mano que nadie explicaba y que, mirado en el historial, era
+     * «hoy» del día en que se escribió.
+     */
+    @Test
+    void theWindowEndsTheDayBeforeThePeriodItIsGoingToCalculate() {
+        LoaderProperties properties = propiedades(null, 202609);
+
+        assertThat(resolverCon(properties, new CatalogoDePrueba(CATEGORIAS_DESDE)).resolve().hasta())
+                .isEqualTo(LocalDate.of(2026, 8, 31));
+    }
+
+    /** Y sin período ni fecha, se para: un {@code now()} haría que la semilla cambiara cada día. */
+    @Test
+    void withoutAPeriodItStopsInsteadOfFallingBackToToday() {
+        LoaderProperties properties = propiedades(null, null);
+
+        assertThatThrownBy(() -> resolverCon(properties, new CatalogoDePrueba(CATEGORIAS_DESDE)).resolve())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("loader.period");
     }
 
     /** Lo configurado manda: es una decisión explícita y no se pisa. */
@@ -74,7 +99,7 @@ class HireWindowResolverTest {
     void anExplicitDateWins() {
         LocalDate aMano = LocalDate.of(2024, 6, 1);
 
-        assertThat(resolver(aMano, new CatalogoDePrueba(CATEGORIAS_DESDE)).resolve()).isEqualTo(aMano);
+        assertThat(resolver(aMano, new CatalogoDePrueba(CATEGORIAS_DESDE)).resolve().desde()).isEqualTo(aMano);
     }
 
     /** Y si el catálogo no sabe contestar, se para diciéndolo en vez de elegir mal. */
@@ -90,11 +115,20 @@ class HireWindowResolverTest {
     // ── el andamio ───────────────────────────────────────────────────────────
 
     private HireWindowResolver resolver(LocalDate configurada, CatalogoDePrueba catalogo) {
+        // El final sale del periodo desde el workforce-loader#11: 202609 -> 2026-08-31.
+        return resolverCon(propiedades(configurada, 202609), catalogo);
+    }
+
+    private HireWindowResolver resolverCon(LoaderProperties properties, CatalogoDePrueba catalogo) {
+        return new HireWindowResolver(properties, new PoolsDePrueba(catalogo, properties), catalogo);
+    }
+
+    private static LoaderProperties propiedades(LocalDate desdeConfigurada, Integer periodo) {
         LoaderProperties properties = new LoaderProperties();
         properties.getDefaults().setRuleSystemCode("esp");
-        properties.getGeneration().setHireDateFrom(configurada);
-        properties.getGeneration().setHireDateTo(LocalDate.of(2026, 5, 1));
-        return new HireWindowResolver(properties, new PoolsDePrueba(catalogo, properties), catalogo);
+        properties.getGeneration().setHireDateFrom(desdeConfigurada);
+        properties.setPeriod(periodo);
+        return properties;
     }
 
     /**

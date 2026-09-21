@@ -604,7 +604,7 @@ class RunLifecycleSimulationServiceTest {
         }
 
         @Override
-        public List<SyntheticEmployee> generateEmployees(java.time.LocalDate hireDateFrom) {
+        public List<SyntheticEmployee> generateEmployees(HireWindow ventana) {
             return employees;
         }
     }
@@ -623,8 +623,10 @@ class RunLifecycleSimulationServiceTest {
         }
 
         @Override
-        public LocalDate resolve() {
-            return baseProperties().getGeneration().getHireDateFrom();
+        public HireWindow resolve() {
+            return new HireWindow(
+                    baseProperties().getGeneration().getHireDateFrom(),
+                    baseProperties().getGeneration().getHireDateTo());
         }
     }
 
@@ -639,7 +641,7 @@ class RunLifecycleSimulationServiceTest {
         }
 
         @Override
-        public List<EmployeeLifecycleScenario> generate(List<SyntheticEmployee> employees) {
+        public List<EmployeeLifecycleScenario> generate(List<SyntheticEmployee> employees, HireWindow ventana) {
             return scenarios;
         }
     }

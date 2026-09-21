@@ -63,15 +63,16 @@ public class PayrollInputScenarioGenerator {
      */
     public List<EmployeeLifecycleEvent> generate(
             LoaderProperties.PayrollInput payrollInput,
+            Integer period,
             List<ActiveWindow> activeWindows,
             Random random
     ) {
-        if (!payrollInput.isEnabled() || payrollInput.getPeriod() == null
+        if (!payrollInput.isEnabled() || period == null
                 || payrollInput.getConceptCode() == null || payrollInput.getConceptCode().isBlank()) {
             return List.of();
         }
 
-        LocalDate periodStart = firstDayOf(payrollInput.getPeriod());
+        LocalDate periodStart = firstDayOf(period);
         LocalDate periodEnd = periodStart.plusMonths(1).minusDays(1);
 
         // El azar se gasta SIEMPRE, tenga o no presencia en el mes: si solo se tirara para los
@@ -91,7 +92,7 @@ public class PayrollInputScenarioGenerator {
                 periodEnd,
                 new PayrollInputEventPayload(
                         payrollInput.getConceptCode().trim().toUpperCase(),
-                        payrollInput.getPeriod(),
+                        period,
                         BigDecimal.valueOf(hours)
                 )
         ));

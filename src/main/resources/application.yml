@@ -89,14 +89,33 @@ loader:
     # se entera.
     #
     # Ahora el loader sondea el catalogo por las fechas de vigencia que el propio
-    # catalogo declara y arranca en la primera que conteste. Lo dice al empezar:
-    #   Ventana de contratacion deducida del catalogo de ESP: desde 2023-01-01.
+    # catalogo declara y arranca en la primera que conteste.
     #
-    # Se puede volver a poner, y entonces manda ella -es una decision explicita y
-    # no se pisa-, pero el loader avisa si el catalogo dice otra cosa. Que es lo
-    # que antes no pasaba.
-    hire-date-to: 2026-05-01
+    # hire-date-to TAMPOCO ESTA, y por un motivo parecido (workforce-loader#11).
+    # Aqui decia 2026-05-01 y nadie lo explicaba. Mirado en el historial: entro
+    # el 2026-05-10 sustituyendo a un 2026-03-31 que entro el 2026-04-05. Las dos
+    # son «hoy, redondeado»; ninguna sale del periodo, que no existia en este
+    # fichero hasta el 2026-09-16. Era «hoy» -y «hoy» es justo lo que este
+    # fichero prohibe para las otras dos fechas del periodo, porque la misma
+    # semilla tiene que dar lo mismo cualquier dia-.
+    #
+    # Asi que sale de loader.period: el dia antes del mes que se calcula. Que
+    # ninguna alta caiga dentro del mes de la demo es la propiedad que se quiere:
+    # cada recibo cubre el mes entero, y lo que parte un recibo es un cambio de
+    # jornada, de categoria o de contrato, que es lo que la demo ensena.
+    #
+    # Las dos se pueden volver a poner y entonces manda lo puesto, pero el loader
+    # avisa si el catalogo o el periodo dicen otra cosa. Lo dice al empezar:
+    #   Ventana de contratacion: desde 2023-01-01 hasta 2026-08-31.
     working-time-percentage: 100
+
+  # El mes que la demo calcula. Es LA FUENTE de la que salen las fechas que
+  # dependen de el -hoy, el final de la ventana de contratacion- y por eso esta
+  # aqui arriba: estaba dentro de payroll-input, donde nadie que buscara «que mes
+  # calcula la demo» iba a mirar (workforce-loader#11).
+  #
+  # Va escrito y no sale del reloj, como la fecha del mes partido y por lo mismo.
+  period: 202609
 
   simulation:
     terminate-rate: 0.60
@@ -144,13 +163,14 @@ loader:
   # acotar por empleado —acota por sociedad, convenio y tipo—, asi que lo que
   # distingue a unos de otros es tener fila aqui o no tenerla.
   #
-  # El periodo va escrito y no sale del reloj, igual que la fecha del mes
-  # partido: una entrada en un mes que la demo no calcula no se ve en ninguna
-  # pantalla, y la misma semilla tiene que dar lo mismo cualquier dia.
+  # El periodo sale de loader.period: una entrada en un mes que la demo no
+  # calcula no se ve en ninguna pantalla, asi que es el mismo mes por
+  # definicion y no un segundo sitio donde mantenerlo.
   payroll-input:
     enabled: true
     concept-code: H01
-    period: 202609
+    # El periodo ya no esta aqui: es loader.period, una sola fuente
+    # (workforce-loader#11).
     rate: 0.25
     min-hours: 4
     max-hours: 20

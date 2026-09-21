@@ -26,6 +26,16 @@ class EmployeeLifecycleScenarioGeneratorTest {
 
     private static final LocalDate CORTE = LocalDate.of(2026, 9, 16);
 
+    /**
+     * La ventana que estos tests usaban, ahora escrita.
+     *
+     * <p>Sus dos extremos estaban en la configuracion y desde el {@code workforce-loader#1} y el
+     * {@code #11} entran por parametro: el principio lo pone el catalogo y el final, el periodo.
+     * Se deja la misma para que lo que estos tests miden no se mueva.
+     */
+    private static final HireWindow VENTANA =
+            new HireWindow(LocalDate.of(2024, 1, 1), LocalDate.of(2026, 5, 1));
+
     @Test
     void partsTheMonthForAsManyEmployeesAsAreAskedFor() {
         LoaderProperties properties = baseProperties();
@@ -35,7 +45,7 @@ class EmployeeLifecycleScenarioGeneratorTest {
                 employee("EMP000001", LocalDate.of(2024, 1, 10)),
                 employee("EMP000002", LocalDate.of(2024, 2, 10)),
                 employee("EMP000003", LocalDate.of(2024, 3, 10))
-        ));
+        ), VENTANA);
 
         assertThat(scenarios).extracting(EmployeeLifecycleScenarioGeneratorTest::workingTimeChangeOf)
                 .containsExactly(CORTE, CORTE, null);
@@ -52,7 +62,7 @@ class EmployeeLifecycleScenarioGeneratorTest {
     void leavesOutWhoeverWasNotAlreadyThereWhenTheMonthStarted() {
         List<EmployeeLifecycleScenario> scenarios = generatorFor(baseProperties()).generate(List.of(
                 employee("EMP000001", LocalDate.of(2026, 9, 20))
-        ));
+        ), VENTANA);
 
         assertThat(workingTimeChangeOf(scenarios.getFirst())).isNull();
     }
@@ -69,8 +79,8 @@ class EmployeeLifecycleScenarioGeneratorTest {
 
         List<SyntheticEmployee> employees = List.of(employee("EMP000001", LocalDate.of(2024, 1, 10)));
 
-        assertThat(workingTimeChangeOf(generatorFor(samePercentage).generate(employees).getFirst())).isNull();
-        assertThat(workingTimeChangeOf(generatorFor(disabled).generate(employees).getFirst())).isNull();
+        assertThat(workingTimeChangeOf(generatorFor(samePercentage).generate(employees, VENTANA).getFirst())).isNull();
+        assertThat(workingTimeChangeOf(generatorFor(disabled).generate(employees, VENTANA).getFirst())).isNull();
     }
 
     /**
@@ -94,10 +104,10 @@ class EmployeeLifecycleScenarioGeneratorTest {
 
         LoaderProperties sinHoras = mutableProperties();
         LoaderProperties conHoras = mutableProperties();
-        conHoras.getPayrollInput().setPeriod(202609);
+        conHoras.setPeriod(202609);
 
-        List<EmployeeLifecycleScenario> antes = generatorFor(sinHoras).generate(plantilla);
-        List<EmployeeLifecycleScenario> despues = generatorFor(conHoras).generate(plantilla);
+        List<EmployeeLifecycleScenario> antes = generatorFor(sinHoras).generate(plantilla, VENTANA);
+        List<EmployeeLifecycleScenario> despues = generatorFor(conHoras).generate(plantilla, VENTANA);
 
         assertThat(sinEventosDeNomina(despues)).isEqualTo(sinEventosDeNomina(antes));
         assertThat(despues.stream()

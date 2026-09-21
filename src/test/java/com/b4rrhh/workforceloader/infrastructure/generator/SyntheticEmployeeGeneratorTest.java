@@ -19,14 +19,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class SyntheticEmployeeGeneratorTest {
 
     /**
-     * La ventana que estos tests usaban, ahora escrita.
+     * La ventana que estos tests usaban, ahora escrita entera.
      *
-     * <p>Era el valor por omision de {@code hire-date-from}, que el
-     * {@code workforce-loader#1} retiro: ahora la ventana la pone el catalogo y, sin
-     * catalogo, hay que decirla. Se deja la misma para que la plantilla generada aqui
-     * siga siendo exactamente la de antes.
+     * <p>Eran los valores por omision de {@code hire-date-from} y {@code hire-date-to}, que el
+     * {@code workforce-loader#1} y el {@code #11} retiraron: ahora los pone el catalogo y el
+     * periodo, y sin ninguno de los dos hay que decirlos. Se deja la misma para que la
+     * plantilla generada aqui siga siendo exactamente la de antes.
      */
-    private static final java.time.LocalDate VENTANA_DESDE = java.time.LocalDate.now().minusMonths(3);
+    private static final com.b4rrhh.workforceloader.application.HireWindow VENTANA =
+            new com.b4rrhh.workforceloader.application.HireWindow(
+                    java.time.LocalDate.now().minusMonths(3), java.time.LocalDate.now());
 
     private static LoaderProperties properties(int count) {
         LoaderProperties properties = new LoaderProperties();
@@ -41,7 +43,7 @@ class SyntheticEmployeeGeneratorTest {
     // workforce-loader#2: el apodo era el nombre de pila en los 310, y el directorio perdía los apellidos.
     @Test
     void nobodyGetsTheirFirstNameAsPreferredName() {
-        List<SyntheticEmployee> employees = new SyntheticEmployeeGenerator(properties(310)).generateEmployees(VENTANA_DESDE);
+        List<SyntheticEmployee> employees = new SyntheticEmployeeGenerator(properties(310)).generateEmployees(VENTANA);
 
         assertThat(employees).hasSize(310);
         assertThat(employees)
@@ -53,7 +55,7 @@ class SyntheticEmployeeGeneratorTest {
     // suelto en un 5 % de las filas se leía como un dato que falta, no como una preferencia.
     @Test
     void theFewSubstitutesReadAsFullNamesWithASurname() {
-        List<SyntheticEmployee> employees = new SyntheticEmployeeGenerator(properties(1000)).generateEmployees(VENTANA_DESDE);
+        List<SyntheticEmployee> employees = new SyntheticEmployeeGenerator(properties(1000)).generateEmployees(VENTANA);
 
         List<SyntheticEmployee> substituted = employees.stream()
                 .filter(employee -> employee.preferredName() != null)
@@ -75,7 +77,7 @@ class SyntheticEmployeeGeneratorTest {
     // workforce-loader#3: con 8 apellidos, buscar «Sanchez» devolvía uno de cada siete empleados.
     @Test
     void surnamesFollowASkewedDistributionAndTheWholeListGetsUsed() {
-        List<SyntheticEmployee> employees = new SyntheticEmployeeGenerator(properties(310)).generateEmployees(VENTANA_DESDE);
+        List<SyntheticEmployee> employees = new SyntheticEmployeeGenerator(properties(310)).generateEmployees(VENTANA);
 
         Map<String, Long> byFirstSurname = employees.stream()
                 .collect(Collectors.groupingBy(SyntheticEmployee::lastName1, Collectors.counting()));

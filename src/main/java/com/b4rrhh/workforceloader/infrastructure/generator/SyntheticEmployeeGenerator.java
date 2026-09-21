@@ -1,5 +1,6 @@
 package com.b4rrhh.workforceloader.infrastructure.generator;
 
+import com.b4rrhh.workforceloader.application.HireWindow;
 import com.b4rrhh.workforceloader.domain.model.SyntheticEmployee;
 import com.b4rrhh.workforceloader.infrastructure.config.LoaderProperties;
 import org.springframework.stereotype.Component;
@@ -95,11 +96,12 @@ public class SyntheticEmployeeGenerator {
     }
 
     /**
-     * @param hireDateFrom el arranque de la ventana, ya resuelto. Entra por parametro y no se
-     *                     lee de la configuracion porque desde el {@code workforce-loader#1}
-     *                     puede no estar escrita en ninguna parte: la pone el catalogo.
+     * @param ventana los dos extremos ya resueltos. Entran por parametro y no se leen de la
+     *                configuracion porque desde el {@code workforce-loader#1} y el {@code #11}
+     *                pueden no estar escritos en ninguna parte: el principio lo pone el catalogo
+     *                y el final, el periodo.
      */
-    public List<SyntheticEmployee> generateEmployees(LocalDate hireDateFrom) {
+    public List<SyntheticEmployee> generateEmployees(HireWindow ventana) {
         LoaderProperties.Defaults defaults = properties.getDefaults();
         LoaderProperties.Generation generation = properties.getGeneration();
         WorkingTimePercentageResolver workingTimePercentageResolver = new WorkingTimePercentageResolver();
@@ -111,7 +113,7 @@ public class SyntheticEmployeeGenerator {
 
         for (int i = 1; i <= generation.getCount(); i++) {
             String employeeNumber = buildEmployeeNumber(generation, i);
-            LocalDate hireDate = randomDateBetween(hireDateFrom, generation.getHireDateTo(), random);
+            LocalDate hireDate = randomDateBetween(ventana.desde(), ventana.hasta(), random);
             SyntheticEmployee.PersonName name = randomName(random);
 
             employees.add(new SyntheticEmployee(

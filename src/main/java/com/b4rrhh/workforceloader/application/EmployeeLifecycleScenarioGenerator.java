@@ -43,13 +43,18 @@ public class EmployeeLifecycleScenarioGenerator {
         this.payrollInputScenarioGenerator = payrollInputScenarioGenerator;
     }
 
-    public List<EmployeeLifecycleScenario> generate(List<SyntheticEmployee> employees) {
+    /**
+     * @param ventana la ventana de contratacion ya resuelta. El «hoy» de la simulacion sale de
+     *                su final, no del reloj, y desde el {@code workforce-loader#11} ese final
+     *                sale del periodo que la demo calcula.
+     */
+    public List<EmployeeLifecycleScenario> generate(List<SyntheticEmployee> employees, HireWindow ventana) {
         LoaderProperties.Simulation simulation = properties.getSimulation();
         Random random = new Random(properties.getGeneration().getSeed() + 1);
 
         // El «hoy» de la simulacion, sin mirar el reloj para que la misma semilla de lo mismo
         // cualquier dia: hasta donde llega el ultimo cese posible.
-        LocalDate simulationHorizon = properties.getGeneration().getHireDateTo()
+        LocalDate simulationHorizon = ventana.hasta()
                 .plusDays(simulation.getTerminationMaxDaysAfterHire());
 
         String ruleSystemCode = normalizeCode(properties.getDefaults().getRuleSystemCode());
@@ -103,7 +108,7 @@ public class EmployeeLifecycleScenarioGenerator {
             events.addAll(absenceScenarioGenerator.generate(
                     activeWindows, simulationHorizon, referencePools.absenceTypes(), random));
             events.addAll(payrollInputScenarioGenerator.generate(
-                    payrollInput, activeWindows, payrollInputRandom));
+                    payrollInput, properties.getPeriod(), activeWindows, payrollInputRandom));
 
             if (workingTimeChangesPlanned < workingTimeChange.getEmployees()
                     && takesTheMidMonthWorkingTimeChange(workingTimeChange, activeWindows, resolvedHireData)) {

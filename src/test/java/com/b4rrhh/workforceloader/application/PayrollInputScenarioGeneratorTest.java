@@ -35,7 +35,7 @@ class PayrollInputScenarioGeneratorTest {
 
         int conHoras = 0;
         for (int i = 0; i < 1000; i++) {
-            conHoras += generator.generate(config, siempreDeAlta(), random).size();
+            conHoras += generator.generate(config, PERIODO, siempreDeAlta(), random).size();
         }
 
         // Ni nadie ni todos: eso es lo unico que hace visible el concepto. El margen es ancho a
@@ -50,7 +50,7 @@ class PayrollInputScenarioGeneratorTest {
 
         List<PayrollInputEventPayload> cargas = new ArrayList<>();
         for (int i = 0; i < 500; i++) {
-            generator.generate(config, siempreDeAlta(), random).stream()
+            generator.generate(config, PERIODO, siempreDeAlta(), random).stream()
                     .map(event -> (PayrollInputEventPayload) event.payload())
                     .forEach(cargas::add);
         }
@@ -90,13 +90,13 @@ class PayrollInputScenarioGeneratorTest {
 
         Random random = generator.newRandom(12345);
         for (List<ActiveWindow> ventanas : fuera) {
-            assertThat(generator.generate(config, ventanas, random))
+            assertThat(generator.generate(config, PERIODO, ventanas, random))
                     .as("ventanas %s", ventanas)
                     .isEmpty();
         }
 
         // Y el que empieza justo el dia 1 y sigue abierto si entra: el mes esta cubierto entero.
-        assertThat(generator.generate(config, List.of(new ActiveWindow(LocalDate.of(2026, 9, 1), null)), random))
+        assertThat(generator.generate(config, PERIODO, List.of(new ActiveWindow(LocalDate.of(2026, 9, 1), null)), random))
                 .hasSize(1);
     }
 
@@ -148,7 +148,7 @@ class PayrollInputScenarioGeneratorTest {
             List<ActiveWindow> ventanas = i == indiceCesado
                     ? List.of(new ActiveWindow(MES_ENTERO_DESDE, LocalDate.of(2026, 1, 31)))
                     : siempreDeAlta();
-            resultado.add(generator.generate(config, ventanas, random).stream()
+            resultado.add(generator.generate(config, PERIODO, ventanas, random).stream()
                     .map(event -> ((PayrollInputEventPayload) event.payload()).quantity().toPlainString())
                     .findFirst()
                     .orElse("-"));
@@ -161,21 +161,21 @@ class PayrollInputScenarioGeneratorTest {
         LoaderProperties.PayrollInput apagado = config();
         apagado.setEnabled(false);
 
-        LoaderProperties.PayrollInput sinPeriodo = config();
-        sinPeriodo.setPeriod(null);
-
         LoaderProperties.PayrollInput sinConcepto = config();
         sinConcepto.setConceptCode("  ");
 
-        for (LoaderProperties.PayrollInput config : List.of(apagado, sinPeriodo, sinConcepto)) {
-            assertThat(generator.generate(config, siempreDeAlta(), generator.newRandom(12345))).isEmpty();
+        for (LoaderProperties.PayrollInput config : List.of(apagado, sinConcepto)) {
+            assertThat(generator.generate(config, PERIODO, siempreDeAlta(), generator.newRandom(12345))).isEmpty();
         }
+
+        // Y sin periodo tampoco, que desde el workforce-loader#11 llega por parametro y no
+        // dentro del bloque: es loader.period, la misma fuente de la que sale la ventana.
+        assertThat(generator.generate(config(), null, siempreDeAlta(), generator.newRandom(12345)))
+                .isEmpty();
     }
 
     private static LoaderProperties.PayrollInput config() {
-        LoaderProperties.PayrollInput config = new LoaderProperties.PayrollInput();
-        config.setPeriod(PERIODO);
-        return config;
+        return new LoaderProperties.PayrollInput();
     }
 
     private static List<ActiveWindow> siempreDeAlta() {

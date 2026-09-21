@@ -26,14 +26,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PersonalDataGeneratorTest {
 
     /**
-     * La ventana que estos tests usaban, ahora escrita.
+     * La ventana que estos tests usaban, ahora escrita entera.
      *
-     * <p>Era el valor por omision de {@code hire-date-from}, que el
-     * {@code workforce-loader#1} retiro: ahora la ventana la pone el catalogo y, sin
-     * catalogo, hay que decirla. Se deja la misma para que la plantilla generada aqui
-     * siga siendo exactamente la de antes.
+     * <p>Eran los valores por omision de {@code hire-date-from} y {@code hire-date-to}, que el
+     * {@code workforce-loader#1} y el {@code #11} retiraron: ahora los pone el catalogo y el
+     * periodo, y sin ninguno de los dos hay que decirlos. Se deja la misma para que la
+     * plantilla generada aqui siga siendo exactamente la de antes.
      */
-    private static final java.time.LocalDate VENTANA_DESDE = java.time.LocalDate.now().minusMonths(3);
+    private static final com.b4rrhh.workforceloader.application.HireWindow VENTANA =
+            new com.b4rrhh.workforceloader.application.HireWindow(
+                    java.time.LocalDate.now().minusMonths(3), java.time.LocalDate.now());
 
     private static final String DNI_LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE";
 
@@ -44,7 +46,7 @@ class PersonalDataGeneratorTest {
         properties.getGeneration().setWorkingTimePercentage(new BigDecimal("100"));
         properties.getDefaults().setRuleSystemCode("esp");
         properties.getDefaults().setEmployeeTypeCode("internal");
-        return new SyntheticEmployeeGenerator(properties).generateEmployees(VENTANA_DESDE);
+        return new SyntheticEmployeeGenerator(properties).generateEmployees(VENTANA);
     }
 
     @Test

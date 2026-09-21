@@ -54,6 +54,18 @@ public class LoaderProperties {
     @NotNull
     private Filters filters = new Filters();
 
+    /**
+     * El mes que la demo calcula, en {@code yyyyMM}.
+     *
+     * <p>Es <b>la fuente</b> de la que salen las fechas que dependen de el, y por eso esta aqui
+     * arriba y no dentro de un bloque: estaba en {@code payroll-input.period}, donde un lector
+     * que buscara «que mes calcula la demo» no iba a mirar ({@code workforce-loader#11}).
+     *
+     * <p>Va escrito y no sale del reloj. Es la misma regla que gobierna la fecha del mes partido:
+     * la misma semilla tiene que dar lo mismo cualquier dia.
+     */
+    private Integer period;
+
     public Backend getBackend() {
         return backend;
     }
@@ -116,6 +128,33 @@ public class LoaderProperties {
 
     public void setSimulation(Simulation simulation) {
         this.simulation = simulation;
+    }
+
+    public Integer getPeriod() {
+        return period;
+    }
+
+    public void setPeriod(Integer period) {
+        this.period = period;
+    }
+
+    /**
+     * El ultimo dia que puede llevar un alta: el anterior al mes que se calcula.
+     *
+     * <p>Sale del periodo y no de una fecha escrita ({@code workforce-loader#11}). Que ninguna
+     * alta caiga dentro del mes de la demo es una propiedad que se quiere: asi cada recibo cubre
+     * el mes entero y lo que parte un recibo es un cambio de jornada, de categoria o de contrato,
+     * que es lo que la demo esta ensenando.
+     *
+     * <p>Si {@code generation.hire-date-to} esta puesto, manda el puesto. Vacio si no hay
+     * ninguno de los dos, y entonces el loader se para diciendolo: un {@code now()} por omision
+     * haria que la semilla cambiara cada dia.
+     */
+    public LocalDate hireDateToFromPeriod() {
+        if (period == null) {
+            return null;
+        }
+        return LocalDate.of(period / 100, period % 100, 1).minusDays(1);
     }
 
     public Filters getFilters() {
@@ -293,8 +332,16 @@ public class LoaderProperties {
          */
         private LocalDate hireDateFrom;
 
-        @NotNull
-        private LocalDate hireDateTo = LocalDate.now();
+        /**
+         * Hasta cuando se contrata. <b>Puede faltar</b>: si falta, sale de {@code loader.period}
+         * ({@code workforce-loader#11}).
+         *
+         * <p>Dejo de tener valor por omision igual que su hermana, y por el mismo motivo con una
+         * vuelta de tuerca: el valor era {@code LocalDate.now()}, y «hoy» es exactamente lo que
+         * este fichero prohibe para las otras dos fechas que dependen del periodo, porque la
+         * misma semilla tiene que dar lo mismo cualquier dia.
+         */
+        private LocalDate hireDateTo;
 
         private BigDecimal workingTimePercentage;
 
@@ -458,13 +505,6 @@ public class LoaderProperties {
         private String conceptCode = "H01";
 
         /**
-         * El mes, en {@code yyyyMM}. Va escrito y no se saca del reloj, igual que la fecha del mes
-         * partido: una entrada en un mes que la demo no calcula no se ve en ninguna pantalla, y la
-         * misma semilla tiene que dar lo mismo cualquier dia.
-         */
-        private Integer period;
-
-        /**
          * Que parte de la plantilla las declara. Un plus que cobran los mil no ensena nada; lo que
          * hace que se lea como una plantilla real es que unos lo tengan y otros no.
          */
@@ -494,14 +534,6 @@ public class LoaderProperties {
 
         public void setConceptCode(String conceptCode) {
             this.conceptCode = conceptCode;
-        }
-
-        public Integer getPeriod() {
-            return period;
-        }
-
-        public void setPeriod(Integer period) {
-            this.period = period;
         }
 
         public double getRate() {

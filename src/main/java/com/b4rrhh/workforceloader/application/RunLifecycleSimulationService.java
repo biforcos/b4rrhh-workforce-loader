@@ -60,13 +60,13 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
 
     @Override
     public LoaderRunSummary run() {
-        // Primero la ventana y luego la validacion, porque hasta que el catalogo no contesta
-        // no hay fecha de arranque que validar (workforce-loader#1).
-        LocalDate hireDateFrom = hireWindowResolver.resolve();
-        validateConfiguration(hireDateFrom);
+        // Primero la ventana y luego la validacion, porque hasta que el catalogo y el periodo
+        // no contestan no hay ventana que validar (workforce-loader#1 y #11).
+        HireWindow ventana = hireWindowResolver.resolve();
+        validateConfiguration(ventana);
 
-        List<SyntheticEmployee> employees = syntheticEmployeeGenerator.generateEmployees(hireDateFrom);
-        List<EmployeeLifecycleScenario> scenarios = scenarioGenerator.generate(employees);
+        List<SyntheticEmployee> employees = syntheticEmployeeGenerator.generateEmployees(ventana);
+        List<EmployeeLifecycleScenario> scenarios = scenarioGenerator.generate(employees, ventana);
 
         List<LifecycleEventExecutionResult> results = new ArrayList<>();
 
@@ -1073,11 +1073,10 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         return new Random(seed + employeeHash + salt);
     }
 
-    private void validateConfiguration(LocalDate hireDateFrom) {
-        LoaderProperties.Generation generation = properties.getGeneration();
-        if (hireDateFrom.isAfter(generation.getHireDateTo())) {
-            throw new IllegalArgumentException("Invalid date range: hire window start " + hireDateFrom
-                    + " must be <= loader.generation.hire-date-to " + generation.getHireDateTo());
+    private void validateConfiguration(HireWindow ventana) {
+        if (ventana.desde().isAfter(ventana.hasta())) {
+            throw new IllegalArgumentException("Invalid date range: hire window start "
+                    + ventana.desde() + " must be <= " + ventana.hasta());
         }
 
         LoaderProperties.Simulation simulation = properties.getSimulation();
