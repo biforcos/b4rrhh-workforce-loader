@@ -59,7 +59,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
-                new FixedHireWindowResolver()
+                new FixedHireWindowResolver(),
+                new WorkingTimeChangeDateResolver(baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -96,7 +97,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
-                new FixedHireWindowResolver()
+                new FixedHireWindowResolver(),
+                new WorkingTimeChangeDateResolver(baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -130,7 +132,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
-                new FixedHireWindowResolver()
+                new FixedHireWindowResolver(),
+                new WorkingTimeChangeDateResolver(baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -165,7 +168,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
-                new FixedHireWindowResolver()
+                new FixedHireWindowResolver(),
+                new WorkingTimeChangeDateResolver(baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -203,7 +207,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
-                new FixedHireWindowResolver()
+                new FixedHireWindowResolver(),
+                new WorkingTimeChangeDateResolver(baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -254,7 +259,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
-                new FixedHireWindowResolver()
+                new FixedHireWindowResolver(),
+                new WorkingTimeChangeDateResolver(baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -293,6 +299,10 @@ class RunLifecycleSimulationServiceTest {
     private static LoaderProperties baseProperties() {
         LoaderProperties properties = new LoaderProperties();
         properties.getBackend().setBaseUrl("http://localhost:8080");
+        // El periodo que se calcula. De aqui sale el dia del corte del mes partido
+        // (workforce-loader#12): el 16 de septiembre de 2026, que es el que usa el escenario de
+        // mas abajo. Sin periodo y con el mes partido encendido, el loader se para al arrancar.
+        properties.setPeriod(202609);
         properties.getDefaults().setRuleSystemCode("ESP");
         properties.getDefaults().setEmployeeTypeCode("INTERNAL");
         properties.getGeneration().setCount(1);
@@ -332,7 +342,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedScenarioGenerator(properties, List.of(scenario)),
                 client,
                 new CostCenterMutationGenerator(new FixedCatalogApiClient(properties, "CC_ADMIN", "CC_HR"), properties),
-                new FixedHireWindowResolver()
+                new FixedHireWindowResolver(),
+                new WorkingTimeChangeDateResolver(baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -375,7 +386,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
-                new FixedHireWindowResolver()
+                new FixedHireWindowResolver(),
+                new WorkingTimeChangeDateResolver(baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -420,7 +432,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
-                new FixedHireWindowResolver()
+                new FixedHireWindowResolver(),
+                new WorkingTimeChangeDateResolver(baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -458,7 +471,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
-                new FixedHireWindowResolver()
+                new FixedHireWindowResolver(),
+                new WorkingTimeChangeDateResolver(baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -507,7 +521,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
-                new FixedHireWindowResolver()
+                new FixedHireWindowResolver(),
+                new WorkingTimeChangeDateResolver(baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -556,7 +571,8 @@ class RunLifecycleSimulationServiceTest {
                 new FixedScenarioGenerator(baseProperties(), List.of(scenario)),
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
-                new FixedHireWindowResolver()
+                new FixedHireWindowResolver(),
+                new WorkingTimeChangeDateResolver(baseProperties())
         );
 
         LoaderRunSummary summary = service.run();
@@ -641,7 +657,8 @@ class RunLifecycleSimulationServiceTest {
         }
 
         @Override
-        public List<EmployeeLifecycleScenario> generate(List<SyntheticEmployee> employees, HireWindow ventana) {
+        public List<EmployeeLifecycleScenario> generate(
+                List<SyntheticEmployee> employees, HireWindow ventana, java.time.LocalDate corteDeMes) {
             return scenarios;
         }
     }

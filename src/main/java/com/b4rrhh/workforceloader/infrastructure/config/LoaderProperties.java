@@ -157,6 +157,36 @@ public class LoaderProperties {
         return LocalDate.of(period / 100, period % 100, 1).minusDays(1);
     }
 
+    /**
+     * El dia en que se parte el mes: el 16 del periodo que se calcula
+     * ({@code workforce-loader#12}).
+     *
+     * <p>El 16 y no otro porque lo que la demo ensena es un mes con dos tramos comparables:
+     * partir por la mitad deja los dos con el mismo peso, y un {@code SALARIO_BASE} a dos
+     * precios se lee de un vistazo. En un mes de 30 dias son 15 y 15; en uno de 31, 15 y 16.
+     *
+     * <p>Sale del periodo por lo mismo que el final de la ventana de contratacion: una fecha que
+     * depende de otra y se escribe aparte son dos fuentes. Estaba escrita a mano, y el dia que
+     * alguien moviera {@code period} a {@code 202610} se habria quedado en septiembre — ningun
+     * recibo partido, y el loader sin decir nada.
+     */
+    public LocalDate workingTimeChangeDateFromPeriod() {
+        if (period == null) {
+            return null;
+        }
+        return LocalDate.of(period / 100, period % 100, 16);
+    }
+
+    /** El primer y el ultimo dia del periodo, para comprobar que una fecha cae dentro. */
+    public LocalDate periodStart() {
+        return period == null ? null : LocalDate.of(period / 100, period % 100, 1);
+    }
+
+    public LocalDate periodEnd() {
+        LocalDate inicio = periodStart();
+        return inicio == null ? null : inicio.plusMonths(1).minusDays(1);
+    }
+
     public Filters getFilters() {
         return filters;
     }
@@ -567,8 +597,12 @@ public class LoaderProperties {
 
         /**
          * Dia en que arranca la jornada nueva, no el ultimo de la anterior: el backend cierra
-         * la ventana en vigor el dia de antes (ADR-057). Va escrita y no se calcula del reloj,
-         * como el resto de la generacion: la misma semilla tiene que dar lo mismo cualquier dia.
+         * la ventana en vigor el dia de antes (ADR-057).
+         *
+         * <p><b>Puede faltar</b>, y lo normal es que falte: si falta sale del periodo, el dia 16
+         * ({@code workforce-loader#12}). Se puede poner para cortar otro dia, y entonces manda
+         * lo puesto — pero tiene que caer dentro del periodo, y si no cae el loader se para en
+         * vez de sembrar un mes sin tramos.
          */
         private LocalDate date;
 

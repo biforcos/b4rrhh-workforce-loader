@@ -48,7 +48,8 @@ public class EmployeeLifecycleScenarioGenerator {
      *                su final, no del reloj, y desde el {@code workforce-loader#11} ese final
      *                sale del periodo que la demo calcula.
      */
-    public List<EmployeeLifecycleScenario> generate(List<SyntheticEmployee> employees, HireWindow ventana) {
+    public List<EmployeeLifecycleScenario> generate(
+            List<SyntheticEmployee> employees, HireWindow ventana, LocalDate corteDeMes) {
         LoaderProperties.Simulation simulation = properties.getSimulation();
         Random random = new Random(properties.getGeneration().getSeed() + 1);
 
@@ -111,10 +112,11 @@ public class EmployeeLifecycleScenarioGenerator {
                     payrollInput, properties.getPeriod(), activeWindows, payrollInputRandom));
 
             if (workingTimeChangesPlanned < workingTimeChange.getEmployees()
-                    && takesTheMidMonthWorkingTimeChange(workingTimeChange, activeWindows, resolvedHireData)) {
+                    && takesTheMidMonthWorkingTimeChange(
+                            workingTimeChange, corteDeMes, activeWindows, resolvedHireData)) {
                 events.add(new EmployeeLifecycleEvent(
                         LifecycleEventType.CHANGE_WORKING_TIME,
-                        workingTimeChange.getDate()
+                        corteDeMes
                 ));
                 workingTimeChangesPlanned++;
             }
@@ -258,10 +260,11 @@ public class EmployeeLifecycleScenarioGenerator {
      */
     private static boolean takesTheMidMonthWorkingTimeChange(
             LoaderProperties.WorkingTimeChange workingTimeChange,
+            LocalDate corteDeMes,
             List<ActiveWindow> activeWindows,
             ResolvedHireData resolvedHireData
     ) {
-        if (!workingTimeChange.isEnabled() || workingTimeChange.getDate() == null) {
+        if (corteDeMes == null) {
             return false;
         }
         // Cambiar la jornada al mismo porcentaje daria dos tramos con el mismo precio: dos
@@ -271,7 +274,7 @@ public class EmployeeLifecycleScenarioGenerator {
             return false;
         }
 
-        LocalDate monthStart = workingTimeChange.getDate().withDayOfMonth(1);
+        LocalDate monthStart = corteDeMes.withDayOfMonth(1);
         for (ActiveWindow window : activeWindows) {
             if (window.endDate() == null && window.startDate().isBefore(monthStart)) {
                 return true;

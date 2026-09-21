@@ -41,6 +41,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
     private final B4rrhhLifecycleClient b4rrhhLifecycleClient;
     private final CostCenterMutationGenerator costCenterMutationGenerator;
     private final HireWindowResolver hireWindowResolver;
+    private final WorkingTimeChangeDateResolver workingTimeChangeDateResolver;
 
     public RunLifecycleSimulationService(
             LoaderProperties properties,
@@ -48,7 +49,8 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             EmployeeLifecycleScenarioGenerator scenarioGenerator,
             B4rrhhLifecycleClient b4rrhhLifecycleClient,
             CostCenterMutationGenerator costCenterMutationGenerator,
-            HireWindowResolver hireWindowResolver
+            HireWindowResolver hireWindowResolver,
+            WorkingTimeChangeDateResolver workingTimeChangeDateResolver
     ) {
         this.properties = properties;
         this.syntheticEmployeeGenerator = syntheticEmployeeGenerator;
@@ -56,6 +58,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         this.b4rrhhLifecycleClient = b4rrhhLifecycleClient;
         this.costCenterMutationGenerator = costCenterMutationGenerator;
         this.hireWindowResolver = hireWindowResolver;
+        this.workingTimeChangeDateResolver = workingTimeChangeDateResolver;
     }
 
     @Override
@@ -63,10 +66,12 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         // Primero la ventana y luego la validacion, porque hasta que el catalogo y el periodo
         // no contestan no hay ventana que validar (workforce-loader#1 y #11).
         HireWindow ventana = hireWindowResolver.resolve();
+        LocalDate corteDeMes = workingTimeChangeDateResolver.resolve();
         validateConfiguration(ventana);
 
         List<SyntheticEmployee> employees = syntheticEmployeeGenerator.generateEmployees(ventana);
-        List<EmployeeLifecycleScenario> scenarios = scenarioGenerator.generate(employees, ventana);
+        List<EmployeeLifecycleScenario> scenarios =
+                scenarioGenerator.generate(employees, ventana, corteDeMes);
 
         List<LifecycleEventExecutionResult> results = new ArrayList<>();
 

@@ -140,12 +140,23 @@ loader:
   # backend y los empleados los crea el loader despues, asi que el UPDATE tocaba
   # cero filas y la migracion terminaba en verde igual (backend#74).
   #
-  # La fecha va escrita y no se saca del reloj, como el resto de la generacion:
-  # tiene que caer dentro del periodo que la demo calcula, y la misma semilla
-  # tiene que dar lo mismo cualquier dia.
+  # La fecha TAMPOCO esta, y es la tercera y ultima que dependia del periodo
+  # (workforce-loader#12). Aqui decia 2026-09-16 y el comentario de al lado ya
+  # decia que «tiene que caer dentro del periodo que la demo calcula»: eso es
+  # una dependencia escrita como numero. El dia que period pasara a 202610, esta
+  # se quedaba en septiembre, ningun recibo se partia, y la demo del ambito
+  # SEGMENT dejaba de ensenar nada sin que el loader dijera una palabra.
+  #
+  # Sale de loader.period: el dia 16 del mes que se calcula. El 16 y no otro
+  # porque lo que se ensena son dos tramos comparables, y partir por la mitad
+  # los deja con el mismo peso.
+  #
+  # Se puede poner para cortar otro dia, y entonces manda lo puesto -pero tiene
+  # que caer dentro del periodo, y si no cae el loader se para-. Lo dice al
+  # empezar:
+  #   Mes partido: corte el 2026-09-16, el dia 16 del periodo 202609.
   working-time-change:
     enabled: true
-    date: 2026-09-16
     percentage: 50
     employees: 5
 
