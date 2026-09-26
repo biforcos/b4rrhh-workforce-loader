@@ -17,6 +17,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 // ni ha tenido vacaciones no se lee como datos de verdad.
 class AbsenceScenarioGeneratorTest {
 
+    /** Cualquier empleado: entra en la identidad del testigo de derecho y en nada mas. */
+    private static final String EMP = "EMP000001";
+
+    /** La tasa de la demo: uno de cada veinte (workforce-loader#14). */
+    private static final double SIN_DERECHO = 0.05;
+
     private static final LocalDate HORIZON = LocalDate.of(2026, 10, 28);
     private static final List<CatalogOption> ESP_TYPES = catalog(
             "UNPAID_LEAVE", "IT_WORK_ACCIDENT", "IT_COMMON", "PARENTAL_LEAVE",
@@ -32,7 +38,7 @@ class AbsenceScenarioGeneratorTest {
 
         for (int seed = 0; seed < 300; seed++) {
             List<EmployeeLifecycleEvent> events =
-                    generator.generate(List.of(closed, open), HORIZON, ESP_TYPES, new Random(seed));
+                    generator.generate(EMP, List.of(closed, open), HORIZON, ESP_TYPES, SIN_DERECHO, new Random(seed));
 
             assertThat(events).allSatisfy(event -> assertThat(event.eventType()).isEqualTo(LifecycleEventType.ABSENCE));
             for (ActiveWindow window : List.of(closed, open)) {
@@ -77,7 +83,7 @@ class AbsenceScenarioGeneratorTest {
         int people = 1000;
         for (int i = 0; i < people; i++) {
             LocalDate hire = LocalDate.of(2023, 1, 1).plusDays(random.nextInt(1200));
-            events.addAll(generator.generate(List.of(new ActiveWindow(hire, null)), HORIZON, ESP_TYPES, random));
+            events.addAll(generator.generate(EMP, List.of(new ActiveWindow(hire, null)), HORIZON, ESP_TYPES, SIN_DERECHO, random));
         }
 
         Map<String, Long> byType = events.stream()
@@ -104,7 +110,7 @@ class AbsenceScenarioGeneratorTest {
         List<EmployeeLifecycleEvent> events = new ArrayList<>();
         Random random = new Random(99);
         for (int i = 0; i < 400; i++) {
-            events.addAll(generator.generate(List.of(new ActiveWindow(LocalDate.of(2023, 1, 1), null)), HORIZON, ESP_TYPES, random));
+            events.addAll(generator.generate(EMP, List.of(new ActiveWindow(LocalDate.of(2023, 1, 1), null)), HORIZON, ESP_TYPES, SIN_DERECHO, random));
         }
 
         Map<String, List<Long>> daysByType = events.stream()
@@ -127,7 +133,7 @@ class AbsenceScenarioGeneratorTest {
         List<EmployeeLifecycleEvent> events = new ArrayList<>();
         Random random = new Random(3);
         for (int i = 0; i < 200; i++) {
-            events.addAll(generator.generate(List.of(new ActiveWindow(LocalDate.of(2024, 1, 1), null)), HORIZON, catalog, random));
+            events.addAll(generator.generate(EMP, List.of(new ActiveWindow(LocalDate.of(2024, 1, 1), null)), HORIZON, catalog, SIN_DERECHO, random));
         }
 
         Map<String, Long> byType = events.stream()
@@ -143,10 +149,9 @@ class AbsenceScenarioGeneratorTest {
 
     @Test
     void noCatalogMeansNoAbsencesAndAWindowTooShortGetsNone() {
-        assertThat(generator.generate(List.of(new ActiveWindow(LocalDate.of(2024, 1, 1), null)), HORIZON, List.of(), new Random(1)))
+        assertThat(generator.generate(EMP, List.of(new ActiveWindow(LocalDate.of(2024, 1, 1), null)), HORIZON, List.of(), SIN_DERECHO, new Random(1)))
                 .isEmpty();
-        assertThat(generator.generate(
-                List.of(new ActiveWindow(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 2))), HORIZON, ESP_TYPES, new Random(1)))
+        assertThat(generator.generate(EMP, List.of(new ActiveWindow(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 2))), HORIZON, ESP_TYPES, SIN_DERECHO, new Random(1)))
                 .isEmpty();
     }
 
@@ -155,10 +160,132 @@ class AbsenceScenarioGeneratorTest {
         List<ActiveWindow> windows = List.of(new ActiveWindow(LocalDate.of(2023, 5, 1), null));
         List<CatalogOption> reversed = ESP_TYPES.reversed();
 
-        List<EmployeeLifecycleEvent> first = generator.generate(windows, HORIZON, ESP_TYPES, new Random(42));
-        List<EmployeeLifecycleEvent> second = generator.generate(windows, HORIZON, reversed, new Random(42));
+        List<EmployeeLifecycleEvent> first = generator.generate(EMP, windows, HORIZON, ESP_TYPES, SIN_DERECHO, new Random(42));
+        List<EmployeeLifecycleEvent> second = generator.generate(EMP, windows, HORIZON, reversed, SIN_DERECHO, new Random(42));
 
         assertThat(first).isNotEmpty().isEqualTo(second);
+    }
+
+    // ── El testigo de derecho a prestacion (workforce-loader#14) ─────────────
+
+    /**
+     * El testigo solo lo llevan las bajas por enfermedad comun.
+     *
+     * <p>En una vacacion el derecho a prestacion no es un dato que falte: es una pregunta que no
+     * significa nada. Por eso viaja nulo y el loader no lo manda.
+     */
+    @Test
+    void onlyCommonSickLeaveCarriesTheBenefitWitness() {
+        List<ActiveWindow> windows = List.of(new ActiveWindow(LocalDate.of(2022, 1, 1), null));
+
+        for (int seed = 0; seed < 200; seed++) {
+            for (EmployeeLifecycleEvent event :
+                    generator.generate(EMP, windows, HORIZON, ESP_TYPES, SIN_DERECHO, new Random(seed))) {
+                AbsenceEventPayload payload = (AbsenceEventPayload) event.payload();
+                if ("IT_COMMON".equals(payload.absenceTypeCode())) {
+                    assertThat(payload.benefitEntitled())
+                            .as("la baja por enfermedad comun siempre lleva testigo")
+                            .isNotNull();
+                } else {
+                    assertThat(payload.benefitEntitled())
+                            .as("%s no paga prestacion: el testigo no significa nada",
+                                    payload.absenceTypeCode())
+                            .isNull();
+                }
+            }
+        }
+    }
+
+    /** Dos corridas, las mismas bajas sin derecho: es lo que el issue pide comprobar. */
+    @Test
+    void twoRunsGiveTheSameLeavesWithoutEntitlement() {
+        List<ActiveWindow> windows = List.of(new ActiveWindow(LocalDate.of(2022, 3, 1), null));
+
+        assertThat(generator.generate(EMP, windows, HORIZON, ESP_TYPES, SIN_DERECHO, new Random(7)))
+                .isEqualTo(generator.generate(EMP, windows, HORIZON, ESP_TYPES, SIN_DERECHO, new Random(7)));
+    }
+
+    /**
+     * <b>El testigo no mueve la plantilla.</b>
+     *
+     * <p>Es el test que de verdad importa de este issue, y el hermano del
+     * {@code seedingOvertimeDoesNotMoveTheRestOfTheSeed}. Si el testigo saliera del {@code Random}
+     * compartido, sacar un numero mas correria el resto de la corrida: cambiarian las fechas, los
+     * tipos y las duraciones de <b>todas</b> las ausencias, y con ellas los 863 recibos de la demo. El
+     * diferencial del {@code deploy#21} dice «se mueven exactamente los recibos con baja», y eso solo
+     * es cierto si el testigo sale de la identidad de la ausencia y no del stream.
+     *
+     * <p>Se comprueba con las dos tasas extremas: con cero nadie se queda sin derecho y con uno nadie
+     * lo tiene, y en los dos casos <b>las ausencias son las mismas</b>: mismo tipo, mismo inicio,
+     * mismo fin.
+     */
+    @Test
+    void theWitnessDoesNotMoveTheRestOfTheSeed() {
+        List<ActiveWindow> windows = List.of(new ActiveWindow(LocalDate.of(2022, 1, 1), null));
+
+        for (int seed = 0; seed < 100; seed++) {
+            List<EmployeeLifecycleEvent> todas =
+                    generator.generate(EMP, windows, HORIZON, ESP_TYPES, 0.0, new Random(seed));
+            List<EmployeeLifecycleEvent> ninguna =
+                    generator.generate(EMP, windows, HORIZON, ESP_TYPES, 1.0, new Random(seed));
+
+            assertThat(sinTestigo(todas))
+                    .as("la tasa del testigo no puede cambiar ni una fecha ni un tipo (semilla %d)", seed)
+                    .isEqualTo(sinTestigo(ninguna));
+
+            assertThat(todas).filteredOn(AbsenceScenarioGeneratorTest::esBaja)
+                    .allSatisfy(event -> assertThat(testigo(event)).isTrue());
+            assertThat(ninguna).filteredOn(AbsenceScenarioGeneratorTest::esBaja)
+                    .allSatisfy(event -> assertThat(testigo(event)).isFalse());
+        }
+    }
+
+    /**
+     * Sin derecho es la excepcion, y el numero es lo que se quiere ensenar.
+     *
+     * <p>Se mira sobre mil empleados porque el testigo sale de la identidad de la ausencia: para un
+     * solo empleado la proporcion no significa nada, y para mil tiene que rondar la tasa. El margen es
+     * ancho a proposito —entre el 2 y el 9 % para una tasa del 5 %—: lo que este test defiende es que
+     * hay de los dos y que sin derecho es la minoria, no que la moneda este perfectamente equilibrada.
+     */
+    @Test
+    void withoutEntitlementIsTheExceptionAndBothCasesExist() {
+        List<ActiveWindow> windows = List.of(new ActiveWindow(LocalDate.of(2022, 1, 1), null));
+        long conDerecho = 0;
+        long sinDerecho = 0;
+
+        for (int i = 1; i <= 1_000; i++) {
+            String empleado = String.format("EMP%06d", i);
+            for (EmployeeLifecycleEvent event :
+                    generator.generate(empleado, windows, HORIZON, ESP_TYPES, SIN_DERECHO, new Random(i))) {
+                if (!esBaja(event)) continue;
+                if (testigo(event)) conDerecho++;
+                else sinDerecho++;
+            }
+        }
+
+        assertThat(sinDerecho).as("tiene que haber alguna sin derecho, o no hay nada que ensenar").isPositive();
+        assertThat(conDerecho).as("y la mayoria con derecho").isGreaterThan(sinDerecho * 5);
+        double proporcion = (double) sinDerecho / (conDerecho + sinDerecho);
+        assertThat(proporcion).isBetween(0.02, 0.09);
+    }
+
+    private static boolean esBaja(EmployeeLifecycleEvent event) {
+        return "IT_COMMON".equals(((AbsenceEventPayload) event.payload()).absenceTypeCode());
+    }
+
+    private static boolean testigo(EmployeeLifecycleEvent event) {
+        return Boolean.TRUE.equals(((AbsenceEventPayload) event.payload()).benefitEntitled());
+    }
+
+    /** Las ausencias sin su testigo: tipo, inicio y fin, que es lo que no puede moverse. */
+    private static List<String> sinTestigo(List<EmployeeLifecycleEvent> events) {
+        return events.stream()
+                .map(event -> {
+                    AbsenceEventPayload payload = (AbsenceEventPayload) event.payload();
+                    return payload.absenceTypeCode() + "|" + event.effectiveDate() + "|" + payload.endDate();
+                })
+                .toList();
     }
 
     private static List<CatalogOption> catalog(String... codes) {

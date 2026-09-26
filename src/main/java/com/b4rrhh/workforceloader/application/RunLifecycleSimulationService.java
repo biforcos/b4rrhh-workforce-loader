@@ -784,7 +784,8 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         }
 
         String absenceTypeCode = normalizeCode(payload.absenceTypeCode());
-        UpsertAbsenceRequest request = new UpsertAbsenceRequest(payload.endDate(), null);
+        UpsertAbsenceRequest request =
+                new UpsertAbsenceRequest(payload.endDate(), null, payload.benefitEntitled());
 
         if (properties.getRun().isDryRun()) {
             return EventOutcome.success("DRY-RUN payload -> " + summarizeEmployee(employee)

@@ -370,9 +370,9 @@ class RunLifecycleSimulationServiceTest {
                 List.of(
                         new EmployeeLifecycleEvent(LifecycleEventType.HIRE, LocalDate.of(2024, 1, 10)),
                         new EmployeeLifecycleEvent(LifecycleEventType.ABSENCE, LocalDate.of(2024, 8, 5),
-                                new AbsenceEventPayload("vacation", LocalDate.of(2024, 8, 16))),
+                                new AbsenceEventPayload("vacation", LocalDate.of(2024, 8, 16), null)),
                         new EmployeeLifecycleEvent(LifecycleEventType.ABSENCE, LocalDate.of(2024, 10, 1),
-                                new AbsenceEventPayload("IT_COMMON", null))
+                                new AbsenceEventPayload("IT_COMMON", null, false))
                 ),
                 resolvedHireData(new BigDecimal("75")),
                 null,
@@ -395,8 +395,8 @@ class RunLifecycleSimulationServiceTest {
         assertThat(summary.absencesRequested()).isEqualTo(2);
         assertThat(summary.absencesSuccess()).isEqualTo(2);
         assertThat(client.absences).containsExactly(
-                new CapturedAbsence("MAS000001", "VACATION", LocalDate.of(2024, 8, 5), new UpsertAbsenceRequest(LocalDate.of(2024, 8, 16), null)),
-                new CapturedAbsence("MAS000001", "IT_COMMON", LocalDate.of(2024, 10, 1), new UpsertAbsenceRequest(null, null))
+                new CapturedAbsence("MAS000001", "VACATION", LocalDate.of(2024, 8, 5), new UpsertAbsenceRequest(LocalDate.of(2024, 8, 16), null, null)),
+                new CapturedAbsence("MAS000001", "IT_COMMON", LocalDate.of(2024, 10, 1), new UpsertAbsenceRequest(null, null, false))
         );
         assertThat(summary.results()).extracting(result -> result.eventType())
                 .containsExactly("HIRE", "ABSENCE", "ABSENCE");
@@ -455,7 +455,7 @@ class RunLifecycleSimulationServiceTest {
                 List.of(
                         new EmployeeLifecycleEvent(LifecycleEventType.HIRE, LocalDate.of(2024, 1, 10)),
                         new EmployeeLifecycleEvent(LifecycleEventType.ABSENCE, LocalDate.of(2024, 2, 5),
-                                new AbsenceEventPayload("VACATION", LocalDate.of(2024, 2, 9))),
+                                new AbsenceEventPayload("VACATION", LocalDate.of(2024, 2, 9), null)),
                         new EmployeeLifecycleEvent(LifecycleEventType.TERMINATE, LocalDate.of(2024, 3, 1))
                 ),
                 resolvedHireData(new BigDecimal("75")),

@@ -740,6 +740,31 @@ public class LoaderProperties {
         @DecimalMax("1.0")
         private double extrasProrrateadasRate = 0.25;
 
+        /**
+         * Que parte de las bajas por enfermedad comun se siembra SIN derecho a prestacion
+         * ({@code workforce-loader#14}).
+         *
+         * <p>Uno de cada veinte, y el numero es lo que se quiere ensenar: <b>sin derecho es la
+         * excepcion</b>. La carencia -180 dias cotizados en cinco anos, art. 172.a) de la LGSS- la
+         * cumple casi todo el mundo, asi que una demo con la mitad de las bajas sin derecho mentiria
+         * sobre cual es el caso normal.
+         *
+         * <p>Y hacen falta las dos, no solo la mayoria: una baja sin derecho quita dias, no paga nada
+         * y no cotiza, y eso es un recibo que se lee distinto. Con cero casos no habria nada que
+         * ensenar de la mitad de la regla.
+         */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double sinDerechoAPrestacionRate = 0.05;
+
+        public double getSinDerechoAPrestacionRate() {
+            return sinDerechoAPrestacionRate;
+        }
+
+        public void setSinDerechoAPrestacionRate(double sinDerechoAPrestacionRate) {
+            this.sinDerechoAPrestacionRate = sinDerechoAPrestacionRate;
+        }
+
         public double getExtrasProrrateadasRate() {
             return extrasProrrateadasRate;
         }

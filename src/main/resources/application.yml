@@ -143,6 +143,20 @@ loader:
     # demo es el mes partido de la jornada, y confundir dos causas de tramos haria
     # ilegible justo lo que el paso 4 quiere ensenar.
     extras-prorrateadas-rate: 0.25
+    # Que parte de las bajas por enfermedad comun va SIN derecho a prestacion
+    # (workforce-loader#14). Uno de cada veinte, y el numero es lo que se ensena:
+    # sin derecho es la EXCEPCION. La carencia -180 dias cotizados en cinco anos-
+    # la cumple casi todo el mundo, asi que una demo con la mitad de las bajas sin
+    # derecho mentiria sobre cual es el caso normal.
+    #
+    # Y hacen falta las dos: una baja sin derecho quita dias, no paga prestacion y
+    # no cotiza, y ese recibo se lee distinto. Con cero casos no habria nada que
+    # ensenar de la mitad de la regla (b4rrhh/backend#129).
+    #
+    # El testigo NO sale del Random de la simulacion, sale de la identidad de la
+    # ausencia. Ver AbsenceScenarioGenerator: asi esta plantilla sigue siendo la
+    # misma de antes de este issue.
+    sin-derecho-a-prestacion-rate: 0.05
 
   # El mes partido de la demo. Unos cuantos empleados cambian de jornada a mitad
   # de mes para que los conceptos SEGMENT (ADR-058) tengan dos tramos con precio

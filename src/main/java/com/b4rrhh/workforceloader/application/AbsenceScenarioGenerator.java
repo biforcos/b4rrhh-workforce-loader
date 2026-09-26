@@ -28,6 +28,26 @@ import java.util.Random;
  * de un periodo de presencia; dos ausencias de la misma persona nunca se tocan (queda al menos un
  * dia entre ellas, porque el backend considera solapadas las que comparten un dia); y una
  * ausencia sin fecha de fin solo puede ser la ultima, y solo si la persona sigue en activo.
+ *
+ * <h2>El testigo de derecho a prestacion ({@code workforce-loader#14})</h2>
+ *
+ * <p>Las bajas por enfermedad comun llevan el testigo, y una fraccion pequena va <b>sin derecho</b>
+ * para que la demo tenga los dos casos: sin derecho la baja quita dias, no paga prestacion y no
+ * cotiza, y ese recibo se lee distinto ({@code b4rrhh/backend#129}).
+ *
+ * <p><b>El testigo no sale del {@code Random} de la simulacion.</b> Sale de la <b>identidad</b> de la
+ * ausencia: el empleado, el tipo y el dia en que empieza. Es la decision de este issue y no un
+ * detalle, por dos razones:
+ *
+ * <ul>
+ *   <li><b>La plantilla no se mueve.</b> Sacar un numero mas del {@code Random} compartido corre el
+ *       resto de la corrida y cambia <i>todas</i> las ausencias, todos los ceses y todas las
+ *       readmisiones. El diferencial del {@code deploy#21} dice «se mueven exactamente los recibos con
+ *       baja»; con el testigo sacado del stream comun, se moverian los 863.</li>
+ *   <li><b>Es estable aunque la plantilla cambie.</b> La misma baja del mismo empleado tiene el mismo
+ *       testigo aunque manana se siembre otra cosa antes. Eso convierte «dos corridas, mismas bajas
+ *       sin derecho» en algo cierto por construccion y no por suerte.</li>
+ * </ul>
  */
 @Component
 public class AbsenceScenarioGenerator {
@@ -44,6 +64,9 @@ public class AbsenceScenarioGenerator {
     static final int OPEN_ABSENCE_MAX_DAYS_AGO = 30;
     /** Vacaciones que caen en julio o agosto, si el periodo los incluye. */
     static final int SUMMER_VACATION_PERCENT = 60;
+
+    /** El unico tipo del que cuelga una prestacion, y por tanto el unico con testigo. */
+    static final String IT_COMMON = "IT_COMMON";
 
     /** Peso relativo entre tipos, duracion en dias naturales y si prefiere el verano. */
     record Profile(int weight, int minDays, int maxDays, boolean preferSummer) {
@@ -73,14 +96,19 @@ public class AbsenceScenarioGenerator {
     }
 
     /**
+     * @param employeeNumber    de quien son las ausencias; entra en la identidad del testigo de
+     *                          derecho y en nada mas ({@code workforce-loader#14})
      * @param windows           periodos de presencia; el ultimo puede estar abierto (sin fin)
      * @param openWindowHorizon hasta donde se planifica en un periodo abierto: el «hoy» de la simulacion
      * @param absenceTypes      tipos del catalogo; sin ninguno, no hay ausencias
+     * @param sinDerechoRate    que parte de las bajas por enfermedad comun va sin derecho a prestacion
      */
     public List<EmployeeLifecycleEvent> generate(
+            String employeeNumber,
             List<ActiveWindow> windows,
             LocalDate openWindowHorizon,
             List<CatalogOption> absenceTypes,
+            double sinDerechoRate,
             Random random
     ) {
         if (absenceTypes == null || absenceTypes.isEmpty()) {
@@ -102,7 +130,10 @@ public class AbsenceScenarioGenerator {
                 events.add(new EmployeeLifecycleEvent(
                         LifecycleEventType.ABSENCE,
                         planned.start(),
-                        new AbsenceEventPayload(planned.code(), planned.end())
+                        new AbsenceEventPayload(
+                                planned.code(),
+                                planned.end(),
+                                benefitEntitled(employeeNumber, planned, sinDerechoRate))
                 ));
             }
         }
@@ -245,6 +276,29 @@ public class AbsenceScenarioGenerator {
 
     private static LocalDate min(LocalDate a, LocalDate b) {
         return a.isBefore(b) ? a : b;
+    }
+
+    /**
+     * Si esta baja lleva derecho a prestacion ({@code workforce-loader#14}).
+     *
+     * <p>Nulo para los tipos que no son baja por enfermedad comun: en unas vacaciones el derecho a
+     * prestacion no es un dato que falte, es una pregunta que no significa nada, y por eso no se
+     * manda. El backend deja entonces el valor que corresponde.
+     *
+     * <p>Y para las bajas, un numero sacado de la <b>identidad</b> de la ausencia y no del
+     * {@code Random} de la corrida. El {@code hashCode} de la cadena es determinista por contrato de
+     * Java —lo esta desde la 1.2 y esta escrito en el Javadoc de {@code String}—, asi que sirve: la
+     * misma baja del mismo empleado da el mismo testigo en todas las corridas y en todas las maquinas.
+     * Se pasa por {@code Math.abs} sobre un {@code long} porque {@code Math.abs(Integer.MIN_VALUE)} es
+     * negativo, y un modulo de un numero negativo tambien.
+     */
+    static Boolean benefitEntitled(String employeeNumber, Planned planned, double sinDerechoRate) {
+        if (!IT_COMMON.equals(planned.code())) {
+            return null;
+        }
+        String identidad = employeeNumber + "|" + planned.code() + "|" + planned.start();
+        long sorteo = Math.abs((long) identidad.hashCode()) % 10_000L;
+        return sorteo >= Math.round(sinDerechoRate * 10_000);
     }
 
     private static String normalizeCode(String value) {

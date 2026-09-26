@@ -122,7 +122,9 @@ public class EmployeeLifecycleScenarioGenerator {
             List<ActiveWindow> activeWindows = buildActiveWindows(employee.hireDate(), terminationDate, rehireDate);
             addMutationEvents(events, activeWindows, simulation, random);
             events.addAll(absenceScenarioGenerator.generate(
-                    activeWindows, simulationHorizon, referencePools.absenceTypes(), random));
+                    employee.employeeNumber(), activeWindows, simulationHorizon,
+                    referencePools.absenceTypes(), simulation.getSinDerechoAPrestacionRate(),
+                    random));
             events.addAll(payrollInputScenarioGenerator.generate(
                     payrollInput, properties.getPeriod(), activeWindows, payrollInputRandom));
 
@@ -175,6 +177,24 @@ public class EmployeeLifecycleScenarioGenerator {
         log.info("Regimen de pagas extras: {} de {} al reves de su convenio ({} %); el resto, el del convenio.",
                 alRevesDelConvenio, employees.size(),
                 Math.round(simulation.getExtrasProrrateadasRate() * 100));
+
+        // La linea de arranque del workforce-loader#14. Se cuenta sobre lo PLANIFICADO y no sobre lo
+        // escrito, que es lo que la hace util en seco: en dry-run el loader no manda ni un alta y este
+        // recuento ya dice que va a sembrar. Lo que prueba que ESCRIBIO es el recuento en la base.
+        long bajasConDerecho = 0;
+        long bajasSinDerecho = 0;
+        for (EmployeeLifecycleScenario scenario : scenarios) {
+            for (EmployeeLifecycleEvent event : scenario.events()) {
+                if (event.payload() instanceof AbsenceEventPayload absence
+                        && absence.benefitEntitled() != null) {
+                    if (absence.benefitEntitled()) bajasConDerecho++;
+                    else bajasSinDerecho++;
+                }
+            }
+        }
+        log.info("Bajas por enfermedad comun: {} con derecho a prestacion y {} sin derecho ({} % esperado).",
+                bajasConDerecho, bajasSinDerecho,
+                Math.round(simulation.getSinDerechoAPrestacionRate() * 100));
 
         return scenarios;
     }
