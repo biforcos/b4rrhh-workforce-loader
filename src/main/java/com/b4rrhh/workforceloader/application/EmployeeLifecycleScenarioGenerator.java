@@ -10,7 +10,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 @Component
@@ -59,20 +61,37 @@ public class EmployeeLifecycleScenarioGenerator {
      *                sale del periodo que la demo calcula.
      */
     public List<EmployeeLifecycleScenario> generate(
-            List<SyntheticEmployee> employees, HireWindow ventana, LocalDate corteDeMes) {
+            List<SyntheticEmployee> employees, HireWindow ventana, List<LocalDate> cortesDeMes) {
         LoaderProperties.Simulation simulation = properties.getSimulation();
         Random random = new Random(properties.getGeneration().getSeed() + 1);
 
         // El «hoy» de la simulacion, sin mirar el reloj para que la misma semilla de lo mismo
         // cualquier dia: hasta donde llega el ultimo cese posible.
+        //
+        // Y nunca antes del final del ciclo (workforce-loader#16). Esto era solo la primera linea, y
+        // con la ventana de contratacion terminando el dia antes del PRIMER mes calculado el
+        // horizonte se quedaba en junio: los tres ultimos meses del ciclo salian SIN UNA SOLA
+        // AUSENCIA, con la corrida en verde y los recuentos con buena pinta. Se vio en la tabla de
+        // recibos partidos -120 al mes hasta junio y 17, 13 y 9 despues- y no en ningun error.
+        LocalDate finDelCiclo = properties.cycleEnd();
         LocalDate simulationHorizon = ventana.hasta()
                 .plusDays(simulation.getTerminationMaxDaysAfterHire());
+        if (finDelCiclo != null && finDelCiclo.isAfter(simulationHorizon)) {
+            simulationHorizon = finDelCiclo;
+        }
+        log.info("Horizonte de la simulacion: {}.", simulationHorizon);
 
         String ruleSystemCode = normalizeCode(properties.getDefaults().getRuleSystemCode());
         ResolvedHireReferencePools referencePools = hireReferenceDataResolver.preloadPools(ruleSystemCode);
 
         LoaderProperties.WorkingTimeChange workingTimeChange = properties.getWorkingTimeChange();
-        int workingTimeChangesPlanned = 0;
+        // Cuantos cambios de jornada lleva ya cada corte. El mes partido se reparte por el ciclo
+        // (workforce-loader#16): con un solo corte, los ocho meses cerrados saldrian todos enteros
+        // y el mes partido pareceria una rareza de septiembre.
+        Map<LocalDate, Integer> planificadosPorCorte = new LinkedHashMap<>();
+        for (LocalDate corte : cortesDeMes) {
+            planificadosPorCorte.put(corte, 0);
+        }
 
         // Azar propio para las horas extra: gastar del comun desplazaria toda la secuencia
         // posterior y la semilla entera cambiaria para anadir unas filas (workforce-loader#5).
@@ -125,8 +144,13 @@ public class EmployeeLifecycleScenarioGenerator {
                     employee.employeeNumber(), activeWindows, simulationHorizon,
                     referencePools.absenceTypes(), simulation.getSinDerechoAPrestacionRate(),
                     random));
-            events.addAll(payrollInputScenarioGenerator.generate(
-                    payrollInput, properties.getPeriod(), activeWindows, payrollInputRandom));
+            // Horas extra en CADA mes del ciclo y no solo en el abierto (workforce-loader#16):
+            // una entrada solo se ve en el recibo de su mes, y con nueve meses calculados los ocho
+            // primeros se quedarian sin ninguna.
+            for (Integer mesDelCiclo : properties.cycleMonths()) {
+                events.addAll(payrollInputScenarioGenerator.generate(
+                        payrollInput, mesDelCiclo, activeWindows, payrollInputRandom));
+            }
 
             // El regimen de pagas extras de quien va al reves del convenio. Son correcciones de
             // las filas que crean el alta y la readmision, con sus mismas fechas: no anaden
@@ -142,14 +166,18 @@ public class EmployeeLifecycleScenarioGenerator {
             }
             events.addAll(regimenes);
 
-            if (workingTimeChangesPlanned < workingTimeChange.getEmployees()
-                    && takesTheMidMonthWorkingTimeChange(
-                            workingTimeChange, corteDeMes, activeWindows, resolvedHireData)) {
+            // Un corte por empleado como mucho: dos cambios de jornada seguidos serian tres
+            // tramos y el segundo taparia al primero, que es justo lo que el mes partido viene a
+            // ensenar de uno en uno. Se elige el corte MENOS cargado que esta persona pueda tomar,
+            // asi que los cinco de enero no se los llevan los cinco primeros de la plantilla.
+            LocalDate corteElegido = elegirCorteMenosCargado(
+                    planificadosPorCorte, workingTimeChange, activeWindows, resolvedHireData);
+            if (corteElegido != null) {
                 events.add(new EmployeeLifecycleEvent(
                         LifecycleEventType.CHANGE_WORKING_TIME,
-                        corteDeMes
+                        corteElegido
                 ));
-                workingTimeChangesPlanned++;
+                planificadosPorCorte.merge(corteElegido, 1, Integer::sum);
             }
 
             // Estable: los eventos con la misma fecha conservan el orden en que se anadieron,
@@ -170,7 +198,8 @@ public class EmployeeLifecycleScenarioGenerator {
                     plannedEvents,
                     resolvedHireData,
                     rehireResolvedHireData,
-                    exitReasonCode
+                    exitReasonCode,
+                    activeWindows
                 ));
         }
 
@@ -334,6 +363,37 @@ public class EmployeeLifecycleScenarioGenerator {
      * que valen, sin gastar azar: anadir este escenario no desplaza la secuencia del Random y
      * por tanto no cambia el resto de la siembra.
      */
+    /**
+     * El corte que menos gente lleva y que esta persona puede tomar, o {@code null} si ninguno.
+     *
+     * <p>Empatados, el mas viejo: asi el reparto es estable y no depende del orden del mapa. No
+     * gasta azar, igual que antes: anadir este escenario no desplaza la secuencia del {@code Random}
+     * y por tanto no cambia el resto de la siembra.
+     */
+    private static LocalDate elegirCorteMenosCargado(
+            Map<LocalDate, Integer> planificadosPorCorte,
+            LoaderProperties.WorkingTimeChange workingTimeChange,
+            List<ActiveWindow> activeWindows,
+            ResolvedHireData resolvedHireData
+    ) {
+        LocalDate elegido = null;
+        int menos = Integer.MAX_VALUE;
+        for (Map.Entry<LocalDate, Integer> entrada : planificadosPorCorte.entrySet()) {
+            if (entrada.getValue() >= workingTimeChange.getEmployees()) {
+                continue;
+            }
+            if (!takesTheMidMonthWorkingTimeChange(
+                    workingTimeChange, entrada.getKey(), activeWindows, resolvedHireData)) {
+                continue;
+            }
+            if (entrada.getValue() < menos) {
+                menos = entrada.getValue();
+                elegido = entrada.getKey();
+            }
+        }
+        return elegido;
+    }
+
     private static boolean takesTheMidMonthWorkingTimeChange(
             LoaderProperties.WorkingTimeChange workingTimeChange,
             LocalDate corteDeMes,

@@ -16,6 +16,7 @@ import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.RehireEmployeeResponse;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.TerminateEmployeeResponse;
+import com.b4rrhh.workforceloader.infrastructure.api.dto.UpdateEmployeePayrollInputRequest;
 import com.b4rrhh.workforceloader.infrastructure.api.dto.UpsertAbsenceRequest;
 import com.b4rrhh.workforceloader.infrastructure.config.LoaderProperties;
 import org.springframework.http.HttpHeaders;
@@ -340,6 +341,42 @@ public class B4rrhhLifecycleClient {
              * lo correcto — una segunda declaracion de las mismas horas es un error de la corrida,
              * no una correccion.
              */
+    /**
+     * Corrige la cantidad de una entrada que ya existe ({@code workforce-loader#16}).
+     *
+     * <p>Hace falta porque una correccion a un mes cerrado no siempre es una entrada nueva: si esa
+     * persona ya declaro horas ese mes, lo que llega despues del cierre es <b>otra cifra</b>, no una
+     * segunda fila —la clave de una entrada es (empleado, concepto, periodo)—. Sin esto, la mitad de
+     * las correcciones se perdian en un 409 y la semilla tenia menos atrasos de los que decia.
+     */
+    public void updatePayrollInput(
+            String ruleSystemCode,
+            String employeeTypeCode,
+            String employeeNumber,
+            String conceptCode,
+            int period,
+            UpdateEmployeePayrollInputRequest request
+    ) {
+        backendTargetGuard.verifyBeforeWriting();
+        try {
+            webClient.put()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/payroll-inputs/{conceptCode}")
+                            .queryParam("period", period)
+                            .build(ruleSystemCode, employeeTypeCode, employeeNumber, conceptCode))
+                    .bodyValue(request)
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
+        } catch (WebClientResponseException ex) {
+            throw new RuntimeException("HTTP error during payroll input update: status="
+                    + ex.getStatusCode() + ", body=" + ex.getResponseBodyAsString(), ex);
+        } catch (Exception ex) {
+            throw new RuntimeException("Connection/runtime error during payroll input update: "
+                    + ex.getMessage(), ex);
+        }
+    }
+
             public void createPayrollInput(
                 String ruleSystemCode,
                 String employeeTypeCode,

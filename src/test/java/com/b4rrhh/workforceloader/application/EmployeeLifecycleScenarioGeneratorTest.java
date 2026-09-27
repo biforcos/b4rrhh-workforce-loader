@@ -25,6 +25,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 class EmployeeLifecycleScenarioGeneratorTest {
 
     private static final LocalDate CORTE = LocalDate.of(2026, 9, 16);
+    /**
+     * Los cortes que el generador recibe. Desde el {@code workforce-loader#16} son una lista —uno
+     * por mes del ciclo— y estos tests siguen pasando uno solo: lo que miden es a quien le toca y
+     * que se le escribe, no el reparto, que tiene su propio test en el resolutor.
+     */
+    private static final List<LocalDate> CORTES = List.of(CORTE);
 
     /**
      * La ventana que estos tests usaban, ahora escrita.
@@ -45,7 +51,7 @@ class EmployeeLifecycleScenarioGeneratorTest {
                 employee("EMP000001", LocalDate.of(2024, 1, 10)),
                 employee("EMP000002", LocalDate.of(2024, 2, 10)),
                 employee("EMP000003", LocalDate.of(2024, 3, 10))
-        ), VENTANA, CORTE);
+        ), VENTANA, CORTES);
 
         assertThat(scenarios).extracting(EmployeeLifecycleScenarioGeneratorTest::workingTimeChangeOf)
                 .containsExactly(CORTE, CORTE, null);
@@ -75,7 +81,7 @@ class EmployeeLifecycleScenarioGeneratorTest {
 
         List<EmployeeLifecycleScenario> scenarios = generatorFor(todos).generate(List.of(
                 employee("EMP000001", LocalDate.of(2024, 1, 10))
-        ), VENTANA, CORTE);
+        ), VENTANA, CORTES);
 
         assertThat(scenarios.getFirst().events())
                 .filteredOn(event -> event.eventType() == LifecycleEventType.CHANGE_EXTRA_PAYMENT_REGIME)
@@ -95,7 +101,7 @@ class EmployeeLifecycleScenarioGeneratorTest {
 
         List<EmployeeLifecycleScenario> scenarios = generatorFor(ninguno).generate(List.of(
                 employee("EMP000001", LocalDate.of(2024, 1, 10))
-        ), VENTANA, CORTE);
+        ), VENTANA, CORTES);
 
         assertThat(scenarios.getFirst().events())
                 .filteredOn(event -> event.eventType() == LifecycleEventType.CHANGE_EXTRA_PAYMENT_REGIME)
@@ -108,7 +114,7 @@ class EmployeeLifecycleScenarioGeneratorTest {
     void leavesOutWhoeverWasNotAlreadyThereWhenTheMonthStarted() {
         List<EmployeeLifecycleScenario> scenarios = generatorFor(baseProperties()).generate(List.of(
                 employee("EMP000001", LocalDate.of(2026, 9, 20))
-        ), VENTANA, CORTE);
+        ), VENTANA, CORTES);
 
         assertThat(workingTimeChangeOf(scenarios.getFirst())).isNull();
     }
@@ -127,11 +133,11 @@ class EmployeeLifecycleScenarioGeneratorTest {
 
         LoaderProperties disabled = baseProperties();
         disabled.getWorkingTimeChange().setEnabled(false);
-        LocalDate sinCorte = new WorkingTimeChangeDateResolver(disabled).resolve();
+        List<LocalDate> sinCorte = new WorkingTimeChangeDateResolver(disabled).resolve();
 
         List<SyntheticEmployee> employees = List.of(employee("EMP000001", LocalDate.of(2024, 1, 10)));
 
-        assertThat(workingTimeChangeOf(generatorFor(samePercentage).generate(employees, VENTANA, CORTE).getFirst())).isNull();
+        assertThat(workingTimeChangeOf(generatorFor(samePercentage).generate(employees, VENTANA, CORTES).getFirst())).isNull();
         assertThat(workingTimeChangeOf(generatorFor(disabled).generate(employees, VENTANA, sinCorte).getFirst())).isNull();
     }
 
@@ -158,8 +164,8 @@ class EmployeeLifecycleScenarioGeneratorTest {
         LoaderProperties conHoras = mutableProperties();
         conHoras.setPeriod(202609);
 
-        List<EmployeeLifecycleScenario> antes = generatorFor(sinHoras).generate(plantilla, VENTANA, CORTE);
-        List<EmployeeLifecycleScenario> despues = generatorFor(conHoras).generate(plantilla, VENTANA, CORTE);
+        List<EmployeeLifecycleScenario> antes = generatorFor(sinHoras).generate(plantilla, VENTANA, CORTES);
+        List<EmployeeLifecycleScenario> despues = generatorFor(conHoras).generate(plantilla, VENTANA, CORTES);
 
         assertThat(sinEventosDeNomina(despues)).isEqualTo(sinEventosDeNomina(antes));
         assertThat(despues.stream()

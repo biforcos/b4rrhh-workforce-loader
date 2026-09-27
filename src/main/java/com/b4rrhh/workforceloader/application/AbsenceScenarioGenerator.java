@@ -68,6 +68,31 @@ public class AbsenceScenarioGenerator {
     /** El unico tipo del que cuelga una prestacion, y por tanto el unico con testigo. */
     static final String IT_COMMON = "IT_COMMON";
 
+    /**
+     * De cada cien bajas por enfermedad comun, las que son <b>largas</b> ({@code workforce-loader#15}).
+     *
+     * <p>Doce de cada cien. El numero no sale de una estadistica: sale de lo que la demo tiene que
+     * poder ensenar. Los tramos del pago delegado son 1-15 (nada), 16-20 (60 %) y 21+ (75 %)
+     * ({@code b4rrhh/backend#129}), y con el perfil de 1 a 12 dias que habia <b>ninguna baja llegaba
+     * al dia 16</b>: los tres tramos estaban calculados, citados y con tests, y el {@code 111} valia
+     * cero en los 863 recibos de la semilla.
+     *
+     * <p>Doce por ciento sobre las bajas comunes de mil personas y nueve meses deja unas decenas en
+     * cada tramo alto y alguna que cruza de un mes al siguiente, que es el recibo mas distinto que
+     * tiene la demo. Mas seria mentir sobre cual es el caso normal: la baja corta lo es.
+     */
+    static final int LONG_SICK_LEAVE_PERCENT = 12;
+    /** Lo que dura una baja larga: de aqui hasta {@link #LONG_SICK_LEAVE_MAX_DAYS}. */
+    static final int LONG_SICK_LEAVE_MIN_DAYS = 20;
+    /**
+     * Y hasta aqui.
+     *
+     * <p>Sesenta y no mas: una baja de meses existe y no es lo que falta ensenar — el
+     * {@code PARENTAL_LEAVE} ya tiene 112 dias y ensena el caso del mes entero sin salir de la
+     * plantilla. Lo que faltaba era el tramo 16-20 y el 21+, y sesenta los cubre con holgura.
+     */
+    static final int LONG_SICK_LEAVE_MAX_DAYS = 60;
+
     /** Peso relativo entre tipos, duracion en dias naturales y si prefiere el verano. */
     record Profile(int weight, int minDays, int maxDays, boolean preferSummer) {
     }
@@ -160,7 +185,7 @@ public class AbsenceScenarioGenerator {
         for (int i = 0; i < count; i++) {
             Candidate candidate = pickWeighted(candidates, random);
             Profile profile = candidate.profile();
-            int duration = profile.minDays() + random.nextInt(profile.maxDays() - profile.minDays() + 1);
+            int duration = drawDuration(candidate.code(), profile, random);
 
             for (int attempt = 0; attempt < 6; attempt++) {
                 LocalDate start = pickStart(first, last, duration, profile.preferSummer(), random);
@@ -181,6 +206,30 @@ public class AbsenceScenarioGenerator {
 
         planned.sort(Comparator.comparing(Planned::start));
         return planned;
+    }
+
+    /**
+     * Cuanto dura esta ausencia, con la cola de las bajas largas ({@code workforce-loader#15}).
+     *
+     * <p>El sorteo de la cola se hace <b>siempre</b> para las bajas comunes, gane o pierda, y no solo
+     * cuando la baja va a ser larga. Es la misma regla que ya gobierna el sorteo de las horas extra:
+     * tirar el dado solo en unos casos hace que la secuencia del {@code Random} dependa de cuantos
+     * casos hubo antes, y entonces cualquier cambio en cualquier otro sitio mueve la plantilla
+     * entera.
+     *
+     * <p><b>Esta funcion si mueve la plantilla</b>, y se dice: el perfil de duraciones cambia, asi
+     * que todas las bajas comunes de la semilla cambian de largo y con ellas los recuentos. Es lo que
+     * el {@code workforce-loader#15} decidio de frente — no se toco entonces para no estropear el
+     * diferencial del paso 5, y ahora ya se puede.
+     */
+    private static int drawDuration(String code, Profile profile, Random random) {
+        int corta = profile.minDays() + random.nextInt(profile.maxDays() - profile.minDays() + 1);
+        boolean tocaLarga = random.nextInt(100) < LONG_SICK_LEAVE_PERCENT;
+        if (!IT_COMMON.equals(code) || !tocaLarga) {
+            return corta;
+        }
+        return LONG_SICK_LEAVE_MIN_DAYS
+                + random.nextInt(LONG_SICK_LEAVE_MAX_DAYS - LONG_SICK_LEAVE_MIN_DAYS + 1);
     }
 
     /** Una baja que empezo hace poco y sigue: solo si queda despues de todo lo demas. */

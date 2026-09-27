@@ -8,8 +8,10 @@ opened all the way down to the step that produced it.
 
 This repository is an external CLI that fills an empty instance: it hires a whole
 workforce, terminates part of it, rehires some of those, and moves people between work
-centres, contracts and cost centres along the way — all of it through the same public API
-a person would use. Everything else — the other repositories and the documents they share
+centres, contracts and cost centres along the way — and then **runs the payroll cycle over
+that workforce**, month by month: calculate, bulk close, and the corrections to already
+delivered months that arrive afterwards. All of it through the same public API a person
+would use. Everything else — the other repositories and the documents they share
 — starts at the workspace repository, which is
 [`../README.md`](../README.md) once it is laid out beside this one. **That repository is
 not mirrored to GitHub**, so if you arrived from
@@ -110,6 +112,34 @@ most damage.
 
 The check repeats every `loader.backend.recheck-every-writes` writes. Checking only at
 startup is not enough: the backend on the other side can be replaced mid-run.
+
+## It does not just seed: it runs the cycle
+
+Seeding gives a photograph — a thousand employees and one payslip each. What it does not
+give is **time**, and without time there is nothing to show of retroactivity: the
+regulatory base reads a previous month that does not exist, delegated sick pay needs leaves
+that cross months, and an arrears line needs a **delivered** month to go back to.
+
+So the loader runs the cycle described in `CICLO.md`. For each month from
+`loader.cycle.from-period` up to `loader.period`:
+
+1. calculate the whole month through the API;
+2. if it is not the last one, **bulk close** it, as a company would on payday;
+3. and **after closing**, write the corrections that arrive in real operation: overtime for
+   the month just closed, a forgotten absence for the month before that, and a handful
+   deeper than the run's retro limit — so the payslip of the open month carries the warning
+   that says a known correction is not being paid.
+
+The last month stays **open**, calculated, with its arrears inside. That is what the demo
+shows.
+
+**Who gets each correction does not come out of a `Random`**: it comes from the employee's
+identity and the month. With nine chained months that stopped being a convenience — a
+shifted random sequence changes who has arrears in *every* later month, and then two runs
+cannot be compared with anything.
+
+Turning it off (`loader.cycle.enabled: false`) leaves the loader as it was: it seeds and
+calculates nothing.
 
 ## Where this run is described
 

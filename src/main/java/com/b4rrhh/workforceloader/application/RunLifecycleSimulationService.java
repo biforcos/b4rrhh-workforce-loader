@@ -63,16 +63,16 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
     }
 
     @Override
-    public LoaderRunSummary run() {
+    public LoaderRunResult run() {
         // Primero la ventana y luego la validacion, porque hasta que el catalogo y el periodo
         // no contestan no hay ventana que validar (workforce-loader#1 y #11).
         HireWindow ventana = hireWindowResolver.resolve();
-        LocalDate corteDeMes = workingTimeChangeDateResolver.resolve();
+        List<LocalDate> cortesDeMes = workingTimeChangeDateResolver.resolve();
         validateConfiguration(ventana);
 
         List<SyntheticEmployee> employees = syntheticEmployeeGenerator.generateEmployees(ventana);
         List<EmployeeLifecycleScenario> scenarios =
-                scenarioGenerator.generate(employees, ventana, corteDeMes);
+                scenarioGenerator.generate(employees, ventana, cortesDeMes);
 
         List<LifecycleEventExecutionResult> results = new ArrayList<>();
 
@@ -297,7 +297,19 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             }
         }
 
-        return new LoaderRunSummary(
+        // A quien se sembro, para el ciclo de nomina que viene despues (workforce-loader#16).
+        // Sale de los escenarios PLANIFICADOS y no de lo que el backend acepto: en seco no ha
+        // aceptado nada, y el ciclo tiene que poder decir lo que haria.
+        List<SeededEmployee> seeded = new ArrayList<>(scenarios.size());
+        String employeeTypeCode = properties.getDefaults().getEmployeeTypeCode();
+        for (EmployeeLifecycleScenario scenario : scenarios) {
+            seeded.add(new SeededEmployee(
+                    employeeTypeCode,
+                    scenario.syntheticEmployee().employeeNumber(),
+                    scenario.activeWindows()));
+        }
+
+        LoaderRunSummary summary = new LoaderRunSummary(
                 employees.size(),
                 hiresRequested,
                 hiresSuccess,
@@ -337,6 +349,8 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                 personalData.failed,
                 results
         );
+
+        return new LoaderRunResult(summary, seeded);
     }
 
     private void executePersonalData(

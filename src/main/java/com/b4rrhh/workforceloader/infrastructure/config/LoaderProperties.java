@@ -54,8 +54,12 @@ public class LoaderProperties {
     @NotNull
     private Filters filters = new Filters();
 
+    @Valid
+    @NotNull
+    private Cycle cycle = new Cycle();
+
     /**
-     * El mes que la demo calcula, en {@code yyyyMM}.
+     * El mes que la demo deja <b>abierto</b>, en {@code yyyyMM}.
      *
      * <p>Es <b>la fuente</b> de la que salen las fechas que dependen de el, y por eso esta aqui
      * arriba y no dentro de un bloque: estaba en {@code payroll-input.period}, donde un lector
@@ -63,6 +67,11 @@ public class LoaderProperties {
      *
      * <p>Va escrito y no sale del reloj. Es la misma regla que gobierna la fecha del mes partido:
      * la misma semilla tiene que dar lo mismo cualquier dia.
+     *
+     * <p>Desde el {@code workforce-loader#16} ya no es el unico mes que se calcula: es el ultimo
+     * del ciclo, el que se queda abierto con sus atrasos. Los demas —de {@link Cycle#getFromPeriod()}
+     * en adelante— se calculan y se cierran. Lo que <b>no</b> ha cambiado es de donde sale la
+     * ventana de contratacion: sale del PRIMER mes que se calcula, no de este.
      */
     private Integer period;
 
@@ -151,10 +160,11 @@ public class LoaderProperties {
      * haria que la semilla cambiara cada dia.
      */
     public LocalDate hireDateToFromPeriod() {
-        if (period == null) {
+        Integer primero = firstCalculatedPeriod();
+        if (primero == null) {
             return null;
         }
-        return LocalDate.of(period / 100, period % 100, 1).minusDays(1);
+        return LocalDate.of(primero / 100, primero % 100, 1).minusDays(1);
     }
 
     /**
@@ -175,6 +185,58 @@ public class LoaderProperties {
             return null;
         }
         return LocalDate.of(period / 100, period % 100, 16);
+    }
+
+    public Cycle getCycle() {
+        return cycle;
+    }
+
+    public void setCycle(Cycle cycle) {
+        this.cycle = cycle;
+    }
+
+    /**
+     * El primer mes que el ciclo calcula, que es de donde sale la ventana de contratacion.
+     *
+     * <p>Sin ciclo es el propio {@code period}, que era el unico mes que existia antes del
+     * {@code workforce-loader#16}.
+     */
+    public Integer firstCalculatedPeriod() {
+        Integer desde = cycle == null ? null : cycle.getFromPeriod();
+        return desde == null ? period : desde;
+    }
+
+    /**
+     * Los meses del ciclo, de mas viejo a mas nuevo.
+     *
+     * <p>Vacia si no hay ciclo que correr. Nunca se calcula al reves ni se saltan meses: el
+     * calculo de un mes lee el vigente del anterior ({@code b4rrhh/backend#131}), asi que el orden
+     * no es cosmetico.
+     */
+    public List<Integer> cycleMonths() {
+        List<Integer> meses = new ArrayList<>();
+        Integer desde = firstCalculatedPeriod();
+        if (desde == null || period == null) {
+            return meses;
+        }
+        LocalDate actual = LocalDate.of(desde / 100, desde % 100, 1);
+        LocalDate ultimo = LocalDate.of(period / 100, period % 100, 1);
+        while (!actual.isAfter(ultimo)) {
+            meses.add(actual.getYear() * 100 + actual.getMonthValue());
+            actual = actual.plusMonths(1);
+        }
+        return meses;
+    }
+
+    /**
+     * El ultimo dia del ciclo, que es hasta donde tiene que llegar la simulacion.
+     *
+     * <p>No es lo mismo que el final de la ventana de contratacion: la ventana termina el dia antes
+     * del PRIMER mes que se calcula, y el ciclo sigue nueve meses mas. Sembrar ausencias solo hasta
+     * la ventana dejaria los ultimos meses del ciclo vacios de todo lo que no sea nomina pura.
+     */
+    public LocalDate cycleEnd() {
+        return periodEnd();
     }
 
     /** El primer y el ultimo dia del periodo, para comprobar que una fecha cae dentro. */
@@ -851,6 +913,185 @@ public class LoaderProperties {
 
         public void setCostCenterReplaceRate(double costCenterReplaceRate) {
             this.costCenterReplaceRate = costCenterReplaceRate;
+        }
+    }
+
+    /**
+     * El ciclo de nomina que la semilla <b>ejecuta</b> ({@code workforce-loader#16}).
+     *
+     * <p>Hasta aqui el loader sembraba datos y alguien calculaba un mes a mano. Eso da una foto: mil
+     * empleados y un recibo cada uno. Lo que no da es <b>tiempo</b>, y sin tiempo no hay nada que
+     * ensenar del paso 6: la base reguladora lee un mes anterior que no existe, el pago delegado
+     * necesita bajas que crucen meses, y un atraso necesita un mes <b>entregado</b> al que volver.
+     *
+     * <p>Asi que el loader corre el ciclo de {@code CICLO.md}: para cada mes, calcular, cerrar en
+     * masa, y meter despues del cierre las correcciones a pasado que llegan en la operativa real.
+     * El ultimo mes se queda abierto, calculado, con sus atrasos dentro.
+     */
+    public static class Cycle {
+
+        /**
+         * Si el loader corre el ciclo despues de sembrar.
+         *
+         * <p>Apagado deja el loader como estaba antes del {@code #16}: siembra y no calcula nada.
+         * Sirve para sembrar contra un backend que todavia no sabe calcular, y para separar los dos
+         * fallos cuando algo va mal.
+         */
+        private boolean enabled = true;
+
+        /**
+         * El primer mes que se calcula y se cierra, en {@code yyyyMM}.
+         *
+         * <p>De aqui sale la ventana de contratacion: ninguna alta cae dentro de un mes que se
+         * calcula, que es la propiedad que ya se queria cuando solo habia un mes
+         * ({@code workforce-loader#11}). El ultimo mes es {@code loader.period}.
+         *
+         * <p>Empieza en enero y no en diciembre a proposito: cruzar el ano mete la retro entre
+         * ejercicios —IRPF de anos anteriores, liquidacion distinta— y eso es otro paso.
+         */
+        private Integer fromPeriod;
+
+        /**
+         * Hasta donde atras se le permite recalcular a cada lanzamiento, en meses.
+         *
+         * <p><b>Tres y no doce</b>, y el numero es una decision de la semilla y no una recomendacion:
+         * doce es lo que propondria un formulario a una empresa ({@code b4rrhh/frontend#85}), pero
+         * con nueve meses de historia un limite de doce no deja NINGUNA marca fuera, y entonces el
+         * aviso del {@code b4rrhh/backend#132} no existe en la demo. Con tres, las dos correcciones
+         * normales —al mes que se acaba de cerrar y al anterior— entran, y la profunda no. Es el
+         * valor mas alto que sigue dejando ver las dos caras.
+         */
+        @Min(1)
+        private int retroLimitMonthsBack = 3;
+
+        /**
+         * De cada cuantos empleados, uno declara horas extra <b>al mes que se acaba de cerrar</b>.
+         *
+         * <p>Uno de cada veinte. Es la correccion mas comun de una nomina real: las horas de
+         * septiembre las cuenta el encargado a primeros de octubre, cuando septiembre ya se pago.
+         */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double horasAlMesCerradoRate = 0.05;
+
+        /**
+         * De cada cuantos, uno declara una ausencia olvidada <b>al mes anterior al cerrado</b>.
+         *
+         * <p>Uno de cada cincuenta, y mas profunda que las horas a proposito: asi el recibo del mes
+         * abierto lleva atrasos de dos origenes distintos, que es el caso que el {@code deploy#22}
+         * pide pegado entero.
+         */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double ausenciaAlMesAnteriorRate = 0.02;
+
+        /**
+         * Cuantos empleados reciben, cada mes, una correccion <b>mas antigua que el limite</b>.
+         *
+         * <p>Un punado —tres— y no una fraccion: lo que se ensena es que el caso existe y que el
+         * recibo lo dice, no cuanto pesa. Cada una deja un aviso en el recibo del mes abierto y una
+         * marca que NO se consume, asi que aparece en la checklist y alguien tiene que decidir
+         * ({@code b4rrhh/backend#132}).
+         */
+        @Min(0)
+        private int fueraDelLimiteEmployees = 3;
+
+        /**
+         * Cuantos meses atras va esa correccion profunda.
+         *
+         * <p>Cinco, que con el limite en tres queda fuera con margen. Solo se escribe cuando el mes
+         * de destino ya se ha cerrado en este mismo ciclo: escribirla sobre un mes sin recibo
+         * entregado no dejaria marca ninguna —el puerto del {@code b4rrhh/backend#130} solo marca lo
+         * que toca un mes entregado— y el aviso no existiria, con la corrida en verde.
+         */
+        @Min(1)
+        private int fueraDelLimiteMesesAtras = 5;
+
+        /** Cada cuanto se pregunta si la ejecucion ha terminado, en segundos. */
+        @Min(1)
+        private int pollSeconds = 10;
+
+        /**
+         * Cuanto se espera como mucho a que termine una ejecucion, en minutos.
+         *
+         * <p>Una corrida de la plantilla entera tarda unos tres minutos; con retro para todos, mas.
+         * El tope existe para que una ejecucion muerta no deje el loader esperando toda la noche, y
+         * cuando salta el loader <b>para</b>: seguir con el mes siguiente sobre un mes que no se
+         * calculo daria una semilla que parece entera y no lo es.
+         */
+        @Min(1)
+        private int runTimeoutMinutes = 60;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public Integer getFromPeriod() {
+            return fromPeriod;
+        }
+
+        public void setFromPeriod(Integer fromPeriod) {
+            this.fromPeriod = fromPeriod;
+        }
+
+        public int getRetroLimitMonthsBack() {
+            return retroLimitMonthsBack;
+        }
+
+        public void setRetroLimitMonthsBack(int retroLimitMonthsBack) {
+            this.retroLimitMonthsBack = retroLimitMonthsBack;
+        }
+
+        public double getHorasAlMesCerradoRate() {
+            return horasAlMesCerradoRate;
+        }
+
+        public void setHorasAlMesCerradoRate(double horasAlMesCerradoRate) {
+            this.horasAlMesCerradoRate = horasAlMesCerradoRate;
+        }
+
+        public double getAusenciaAlMesAnteriorRate() {
+            return ausenciaAlMesAnteriorRate;
+        }
+
+        public void setAusenciaAlMesAnteriorRate(double ausenciaAlMesAnteriorRate) {
+            this.ausenciaAlMesAnteriorRate = ausenciaAlMesAnteriorRate;
+        }
+
+        public int getFueraDelLimiteEmployees() {
+            return fueraDelLimiteEmployees;
+        }
+
+        public void setFueraDelLimiteEmployees(int fueraDelLimiteEmployees) {
+            this.fueraDelLimiteEmployees = fueraDelLimiteEmployees;
+        }
+
+        public int getFueraDelLimiteMesesAtras() {
+            return fueraDelLimiteMesesAtras;
+        }
+
+        public void setFueraDelLimiteMesesAtras(int fueraDelLimiteMesesAtras) {
+            this.fueraDelLimiteMesesAtras = fueraDelLimiteMesesAtras;
+        }
+
+        public int getPollSeconds() {
+            return pollSeconds;
+        }
+
+        public void setPollSeconds(int pollSeconds) {
+            this.pollSeconds = pollSeconds;
+        }
+
+        public int getRunTimeoutMinutes() {
+            return runTimeoutMinutes;
+        }
+
+        public void setRunTimeoutMinutes(int runTimeoutMinutes) {
+            this.runTimeoutMinutes = runTimeoutMinutes;
         }
     }
 }

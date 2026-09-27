@@ -241,6 +241,48 @@ class AbsenceScenarioGeneratorTest {
     }
 
     /**
+     * Las bajas llegan al dia 16 y al 21 (workforce-loader#15).
+     *
+     * <p>Este es el test del issue, y lo que mide es un agujero que estuvo abierto meses: los tramos
+     * del pago delegado -1-15 nada, 16-20 el 60 %, 21+ el 75 %- estaban calculados, citados y con
+     * tests en el {@code b4rrhh/backend#129}, y el perfil de duraciones de aqui iba de 1 a 12 dias.
+     * O sea que el {@code 111} valia CERO en los 863 recibos de la semilla y no habia forma de
+     * ensenar la mitad de lo que el motor sabia hacer.
+     *
+     * <p>Se miran los tres tramos y se exige que los tres tengan gente. Y se exige tambien que la
+     * baja corta siga siendo la mayoria: una demo donde la mitad de las bajas duran mes y medio
+     * mentiria sobre cual es el caso normal, que es justo el error contrario.
+     */
+    @Test
+    void sickLeavesReachTheDelegatedPaymentTranches() {
+        List<ActiveWindow> windows = List.of(new ActiveWindow(LocalDate.of(2022, 1, 1), null));
+        long hasta15 = 0;
+        long de16a20 = 0;
+        long de21enAdelante = 0;
+
+        for (int i = 1; i <= 1_000; i++) {
+            String empleado = String.format("EMP%06d", i);
+            for (EmployeeLifecycleEvent event :
+                    generator.generate(empleado, windows, HORIZON, ESP_TYPES, SIN_DERECHO, new Random(i))) {
+                if (!esBaja(event)) continue;
+                AbsenceEventPayload baja = (AbsenceEventPayload) event.payload();
+                if (baja.endDate() == null) continue;
+                long dias = java.time.temporal.ChronoUnit.DAYS.between(
+                        event.effectiveDate(), baja.endDate()) + 1;
+                if (dias <= 15) hasta15++;
+                else if (dias <= 20) de16a20++;
+                else de21enAdelante++;
+            }
+        }
+
+        assertThat(de16a20).as("el tramo del 60 %% delegado tiene que existir").isPositive();
+        assertThat(de21enAdelante).as("y el del 75 %% tambien").isPositive();
+        assertThat(hasta15)
+                .as("y la baja corta sigue siendo la mayoria, o la demo mentiria sobre el caso normal")
+                .isGreaterThan(de16a20 + de21enAdelante);
+    }
+
+    /**
      * Sin derecho es la excepcion, y el numero es lo que se quiere ensenar.
      *
      * <p>Se mira sobre mil empleados porque el testigo sale de la identidad de la ausencia: para un

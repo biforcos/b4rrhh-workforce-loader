@@ -1,7 +1,9 @@
 package com.b4rrhh.workforceloader.infrastructure.runner;
 
+import com.b4rrhh.workforceloader.application.LoaderRunResult;
 import com.b4rrhh.workforceloader.application.RunLifecycleSimulationUseCase;
-import com.b4rrhh.workforceloader.domain.model.LoaderRunSummary;
+import com.b4rrhh.workforceloader.application.RunPayrollCycleService;
+import com.b4rrhh.workforceloader.domain.model.PayrollCycleSummary;
 import com.b4rrhh.workforceloader.infrastructure.api.BackendTargetGuard;
 import com.b4rrhh.workforceloader.infrastructure.config.LoaderProperties;
 import com.b4rrhh.workforceloader.infrastructure.config.RunMode;
@@ -19,17 +21,20 @@ public class CliRunner implements CommandLineRunner {
     private final LoaderProperties properties;
     private final BackendTargetGuard backendTargetGuard;
     private final RunLifecycleSimulationUseCase runLifecycleSimulationUseCase;
+    private final RunPayrollCycleService runPayrollCycleService;
     private final RunReportWriter runReportWriter;
 
     public CliRunner(
             LoaderProperties properties,
             BackendTargetGuard backendTargetGuard,
             RunLifecycleSimulationUseCase runLifecycleSimulationUseCase,
+            RunPayrollCycleService runPayrollCycleService,
             RunReportWriter runReportWriter
     ) {
         this.properties = properties;
         this.backendTargetGuard = backendTargetGuard;
         this.runLifecycleSimulationUseCase = runLifecycleSimulationUseCase;
+        this.runPayrollCycleService = runPayrollCycleService;
         this.runReportWriter = runReportWriter;
     }
 
@@ -52,7 +57,14 @@ public class CliRunner implements CommandLineRunner {
             properties.getRun().isDryRun()
         );
 
-        LoaderRunSummary summary = runLifecycleSimulationUseCase.run();
-        runReportWriter.printSummary(summary, properties.getRun().isDryRun());
+        LoaderRunResult resultado = runLifecycleSimulationUseCase.run();
+        runReportWriter.printSummary(resultado.summary(), properties.getRun().isDryRun());
+
+        // El ciclo va DESPUES de la siembra y en el mismo proceso: calcular un mes sobre una
+        // plantilla a medias daria recibos a medias (workforce-loader#16). Y va aqui y no dentro
+        // del servicio de simulacion porque son dos cosas distintas: aquella siembra hechos del
+        // empleado, esta ejecuta el ciclo del mes.
+        PayrollCycleSummary ciclo = runPayrollCycleService.run(resultado.seeded());
+        runReportWriter.printCycle(ciclo);
     }
 }

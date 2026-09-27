@@ -49,7 +49,8 @@ class RunLifecycleSimulationServiceTest {
                 ),
                 resolvedHireData(new BigDecimal("75")),
                 resolvedHireData(new BigDecimal("60")),
-                "BAJA"
+                "BAJA",
+                List.of()
         );
 
         CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
@@ -63,7 +64,7 @@ class RunLifecycleSimulationServiceTest {
                 new WorkingTimeChangeDateResolver(baseProperties())
         );
 
-        LoaderRunSummary summary = service.run();
+        LoaderRunSummary summary = service.run().summary();
 
         assertThat(summary.hiresSuccess()).isEqualTo(1);
         assertThat(summary.terminationsSuccess()).isEqualTo(1);
@@ -87,7 +88,8 @@ class RunLifecycleSimulationServiceTest {
                 List.of(new EmployeeLifecycleEvent(LifecycleEventType.HIRE, LocalDate.of(2024, 1, 10))),
                 resolvedHireData(null),
                 null,
-                "BAJA"
+                "BAJA",
+                List.of()
         );
 
         CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
@@ -101,7 +103,7 @@ class RunLifecycleSimulationServiceTest {
                 new WorkingTimeChangeDateResolver(baseProperties())
         );
 
-        LoaderRunSummary summary = service.run();
+        LoaderRunSummary summary = service.run().summary();
 
         assertThat(summary.hiresFailed()).isEqualTo(1);
         assertThat(summary.hiresSuccess()).isZero();
@@ -122,7 +124,8 @@ class RunLifecycleSimulationServiceTest {
                 ),
                 resolvedHireData(new BigDecimal("75")),
                 resolvedHireData(new BigDecimal("120")),
-                "BAJA"
+                "BAJA",
+                List.of()
         );
 
         CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
@@ -136,7 +139,7 @@ class RunLifecycleSimulationServiceTest {
                 new WorkingTimeChangeDateResolver(baseProperties())
         );
 
-        LoaderRunSummary summary = service.run();
+        LoaderRunSummary summary = service.run().summary();
 
         assertThat(summary.hiresSuccess()).isEqualTo(1);
         assertThat(summary.terminationsSuccess()).isEqualTo(1);
@@ -158,7 +161,8 @@ class RunLifecycleSimulationServiceTest {
                 List.of(new EmployeeLifecycleEvent(LifecycleEventType.HIRE, LocalDate.of(2024, 1, 10))),
                 resolvedHireData(new BigDecimal("75")),
                 null,
-                "BAJA"
+                "BAJA",
+                List.of()
         );
 
         CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
@@ -172,7 +176,7 @@ class RunLifecycleSimulationServiceTest {
                 new WorkingTimeChangeDateResolver(baseProperties())
         );
 
-        LoaderRunSummary summary = service.run();
+        LoaderRunSummary summary = service.run().summary();
 
         assertThat(summary.hiresSuccess()).isEqualTo(1);
         assertThat(summary.personalDataRequested()).isEqualTo(3);
@@ -196,7 +200,8 @@ class RunLifecycleSimulationServiceTest {
                 ),
                 resolvedHireData(new BigDecimal("75")),
                 null,
-                "BAJA"
+                "BAJA",
+                List.of()
         );
 
         CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
@@ -211,7 +216,7 @@ class RunLifecycleSimulationServiceTest {
                 new WorkingTimeChangeDateResolver(baseProperties())
         );
 
-        LoaderRunSummary summary = service.run();
+        LoaderRunSummary summary = service.run().summary();
 
         assertThat(summary.personalDataRequested()).isEqualTo(3);
         assertThat(summary.personalDataSuccess()).isEqualTo(2);
@@ -249,7 +254,8 @@ class RunLifecycleSimulationServiceTest {
                 ),
                 resolvedHireData(new BigDecimal("100")),
                 null,
-                "BAJA"
+                "BAJA",
+                List.of()
         );
 
         CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
@@ -263,7 +269,7 @@ class RunLifecycleSimulationServiceTest {
                 new WorkingTimeChangeDateResolver(baseProperties())
         );
 
-        LoaderRunSummary summary = service.run();
+        LoaderRunSummary summary = service.run().summary();
 
         assertThat(summary.workingTimeChangesRequested()).isEqualTo(1);
         assertThat(summary.workingTimeChangesSuccess()).isEqualTo(1);
@@ -330,7 +336,8 @@ class RunLifecycleSimulationServiceTest {
                 ),
                 resolvedHireData(new BigDecimal("75")),
                 resolvedHireData(new BigDecimal("60")),
-                "BAJA"
+                "BAJA",
+                List.of()
         );
 
         LoaderProperties properties = baseProperties();
@@ -346,7 +353,7 @@ class RunLifecycleSimulationServiceTest {
                 new WorkingTimeChangeDateResolver(baseProperties())
         );
 
-        LoaderRunSummary summary = service.run();
+        LoaderRunSummary summary = service.run().summary();
 
         assertThat(summary.hiresSuccess()).isEqualTo(1);
         assertThat(summary.rehiresSuccess()).isEqualTo(1);
@@ -376,7 +383,8 @@ class RunLifecycleSimulationServiceTest {
                 ),
                 resolvedHireData(new BigDecimal("75")),
                 null,
-                "BAJA"
+                "BAJA",
+                List.of()
         );
 
         CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
@@ -390,7 +398,7 @@ class RunLifecycleSimulationServiceTest {
                 new WorkingTimeChangeDateResolver(baseProperties())
         );
 
-        LoaderRunSummary summary = service.run();
+        LoaderRunSummary summary = service.run().summary();
 
         assertThat(summary.absencesRequested()).isEqualTo(2);
         assertThat(summary.absencesSuccess()).isEqualTo(2);
@@ -422,7 +430,8 @@ class RunLifecycleSimulationServiceTest {
                 ),
                 resolvedHireData(new BigDecimal("75")),
                 null,
-                "BAJA"
+                "BAJA",
+                List.of()
         );
 
         CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
@@ -436,7 +445,7 @@ class RunLifecycleSimulationServiceTest {
                 new WorkingTimeChangeDateResolver(baseProperties())
         );
 
-        LoaderRunSummary summary = service.run();
+        LoaderRunSummary summary = service.run().summary();
 
         assertThat(summary.payrollInputsRequested()).isEqualTo(1);
         assertThat(summary.payrollInputsSuccess()).isEqualTo(1);
@@ -460,7 +469,8 @@ class RunLifecycleSimulationServiceTest {
                 ),
                 resolvedHireData(new BigDecimal("75")),
                 null,
-                "BAJA"
+                "BAJA",
+                List.of()
         );
 
         CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
@@ -475,7 +485,7 @@ class RunLifecycleSimulationServiceTest {
                 new WorkingTimeChangeDateResolver(baseProperties())
         );
 
-        LoaderRunSummary summary = service.run();
+        LoaderRunSummary summary = service.run().summary();
 
         assertThat(summary.absencesRequested()).isEqualTo(1);
         assertThat(summary.absencesFailed()).isEqualTo(1);
@@ -511,7 +521,8 @@ class RunLifecycleSimulationServiceTest {
                 ),
                 resolvedHireData(new BigDecimal("75")),
                 null,
-                "BAJA"
+                "BAJA",
+                List.of()
         );
 
         CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
@@ -525,7 +536,7 @@ class RunLifecycleSimulationServiceTest {
                 new WorkingTimeChangeDateResolver(baseProperties())
         );
 
-        LoaderRunSummary summary = service.run();
+        LoaderRunSummary summary = service.run().summary();
 
         assertThat(summary.workCenterChangesSuccess()).isEqualTo(1);
         assertThat(summary.contractReplacementsSuccess()).isEqualTo(1);
@@ -560,7 +571,8 @@ class RunLifecycleSimulationServiceTest {
                 ),
                 resolvedHireData(new BigDecimal("75")),
                 null,
-                "BAJA"
+                "BAJA",
+                List.of()
         );
 
         CapturingLifecycleClient client = new CapturingLifecycleClient(baseProperties());
@@ -575,7 +587,7 @@ class RunLifecycleSimulationServiceTest {
                 new WorkingTimeChangeDateResolver(baseProperties())
         );
 
-        LoaderRunSummary summary = service.run();
+        LoaderRunSummary summary = service.run().summary();
 
         assertThat(summary.contractReplacementsRequested()).isEqualTo(1);
         assertThat(summary.contractReplacementsFailed()).isEqualTo(1);
@@ -660,7 +672,9 @@ class RunLifecycleSimulationServiceTest {
 
         @Override
         public List<EmployeeLifecycleScenario> generate(
-                List<SyntheticEmployee> employees, HireWindow ventana, java.time.LocalDate corteDeMes) {
+                List<SyntheticEmployee> employees,
+                HireWindow ventana,
+                List<java.time.LocalDate> cortesDeMes) {
             return scenarios;
         }
     }

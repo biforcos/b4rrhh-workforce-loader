@@ -109,13 +109,63 @@ loader:
     #   Ventana de contratacion: desde 2023-01-01 hasta 2026-08-31.
     working-time-percentage: 100
 
-  # El mes que la demo calcula. Es LA FUENTE de la que salen las fechas que
-  # dependen de el -hoy, el final de la ventana de contratacion- y por eso esta
-  # aqui arriba: estaba dentro de payroll-input, donde nadie que buscara «que mes
-  # calcula la demo» iba a mirar (workforce-loader#11).
+  # El mes que la demo deja ABIERTO. Es LA FUENTE de la que salen las fechas que
+  # dependen de el y por eso esta aqui arriba: estaba dentro de payroll-input,
+  # donde nadie que buscara «que mes calcula la demo» iba a mirar
+  # (workforce-loader#11).
   #
   # Va escrito y no sale del reloj, como la fecha del mes partido y por lo mismo.
+  #
+  # Desde el workforce-loader#16 ya no es el unico mes que se calcula: es el
+  # ultimo del ciclo. Los demas se calculan Y SE CIERRAN. La ventana de
+  # contratacion sale del PRIMERO, no de este.
   period: 202609
+
+  # El ciclo que la semilla ejecuta (workforce-loader#16).
+  #
+  # Hasta aqui el loader sembraba y alguien calculaba un mes a mano. Eso da una
+  # foto: mil empleados y un recibo cada uno. Lo que no da es TIEMPO, y sin
+  # tiempo no hay nada que ensenar del paso 6 de workspace#9: la base reguladora
+  # lee un mes anterior que no existe, el pago delegado necesita bajas que crucen
+  # meses, la extra de junio no se devenga entera, y un atraso necesita un mes
+  # ENTREGADO al que volver.
+  #
+  # Empieza en enero y no en diciembre a proposito: cruzar el ano mete la retro
+  # entre ejercicios -IRPF de anos anteriores, liquidacion distinta- y eso es
+  # otro paso.
+  cycle:
+    enabled: true
+    from-period: 202601
+
+    # Hasta donde atras puede recalcular cada lanzamiento, en meses.
+    #
+    # TRES Y NO DOCE, y el numero es una decision de la semilla y no una
+    # recomendacion. Doce es lo que un formulario le propone a una empresa
+    # (b4rrhh/frontend#85), pero con nueve meses de historia un limite de doce no
+    # deja NINGUNA marca fuera, y entonces el aviso del b4rrhh/backend#132 no
+    # existe en la demo. Con tres, las dos correcciones normales -al mes recien
+    # cerrado y al anterior- entran, y la profunda no.
+    retro-limit-months-back: 3
+
+    # Las correcciones que llegan DESPUES de cerrar, que es lo que pasa en una
+    # nomina de verdad: las horas de septiembre las cuenta el encargado a
+    # primeros de octubre, cuando septiembre ya se pago.
+    #
+    # Uno de cada veinte declara horas al mes que se acaba de cerrar.
+    horas-al-mes-cerrado-rate: 0.05
+    # Uno de cada cincuenta declara una ausencia olvidada al mes ANTERIOR al
+    # cerrado. Mas profunda a proposito: asi el recibo del mes abierto lleva
+    # atrasos de dos origenes distintos, que es el caso que el deploy#22 pide
+    # pegado entero.
+    ausencia-al-mes-anterior-rate: 0.02
+    # Y un punado mas atras de lo que el limite alcanza, para que el aviso del
+    # #132 exista en la demo. Un numero y no una fraccion: lo que se ensena es
+    # que el caso existe y que el recibo lo dice, no cuanto pesa.
+    fuera-del-limite-employees: 3
+    fuera-del-limite-meses-atras: 5
+
+    poll-seconds: 10
+    run-timeout-minutes: 60
 
   simulation:
     terminate-rate: 0.60
