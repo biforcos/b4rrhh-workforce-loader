@@ -163,6 +163,12 @@ loader:
     # que el caso existe y que el recibo lo dice, no cuanto pesa.
     fuera-del-limite-employees: 3
     fuera-del-limite-meses-atras: 5
+    # Y una correccion que QUITA (b4rrhh/backend#137): a un punado se le borran
+    # las horas que la correccion de arriba escribio al mes anterior, ya pagadas
+    # como atraso. Todas las demas solo anaden, y el atraso negativo de un
+    # concepto que ya no esta en el vigente es otro camino: el que revento en la
+    # demo del 162.
+    horas-quitadas-employees: 3
 
     poll-seconds: 10
     run-timeout-minutes: 60

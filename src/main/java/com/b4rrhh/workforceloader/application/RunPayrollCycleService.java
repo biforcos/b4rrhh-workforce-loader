@@ -154,13 +154,15 @@ public class RunPayrollCycleService {
                     correcciones.horas(),
                     correcciones.ausencias(),
                     correcciones.fueraDelLimite(),
+                    correcciones.horasQuitadas(),
                     Duration.between(arranqueDelMes, Instant.now()).toSeconds()
             ));
 
-            log.info("Mes {} listo: {} recibos, {} vigentes, {} cerrados, correcciones {}+{}+{}.",
+            log.info("Mes {} listo: {} recibos, {} vigentes, {} cerrados, correcciones {}+{}+{},"
+                    + " horas quitadas {}.",
                     mes, valor(ejecucion.totalCalculated()), valor(ejecucion.totalRetroRecalculated()),
                     cerrados, correcciones.horas(), correcciones.ausencias(),
-                    correcciones.fueraDelLimite());
+                    correcciones.fueraDelLimite(), correcciones.horasQuitadas());
         }
 
         return new PayrollCycleSummary(
@@ -236,7 +238,7 @@ public class RunPayrollCycleService {
     }
 
     /**
-     * Las tres correcciones que llegan despues de cerrar.
+     * Las cuatro correcciones que llegan despues de cerrar: tres que anaden y una que quita.
      *
      * <p>Quien recibe cada una sale de {@link #tocaA}, que no gasta azar: es la identidad del
      * empleado y del mes.
@@ -292,7 +294,57 @@ public class RunPayrollCycleService {
             }
         }
 
-        return new Correcciones(horas, ausencias, fueraDelLimite);
+        int horasQuitadas = 0;
+        if (hayMesAnterior) {
+            for (SeededEmployee empleado : aQuienSeLeQuitanHoras(seeded, mesAnterior, cycle)) {
+                if (borrarHoras(empleado, mesAnterior)) {
+                    horasQuitadas++;
+                }
+            }
+        }
+
+        return new Correcciones(horas, ausencias, fueraDelLimite, horasQuitadas);
+    }
+
+    /**
+     * A quien se le borran las horas del mes anterior ({@code b4rrhh/backend#137}): a los primeros de
+     * los que recibieron la correccion de horas en ese mes, que es quien las tiene pagadas seguro.
+     *
+     * <p>La misma eleccion que la de las horas —mismo hash, mismo mes, mismo nombre— y no un sorteo
+     * nuevo: lo que se borra tiene que ser algo que se escribio y se pago, o el borrado no deja ni
+     * marca ni atraso y el camino se queda sin sembrar con la corrida en verde.
+     */
+    static List<SeededEmployee> aQuienSeLeQuitanHoras(
+            List<SeededEmployee> seeded, int mesAnterior, LoaderProperties.Cycle cycle) {
+        List<SeededEmployee> elegidos = new ArrayList<>();
+        for (SeededEmployee empleado : seeded) {
+            if (elegidos.size() >= cycle.getHorasQuitadasEmployees()) {
+                break;
+            }
+            if (empleado.coversWholeMonth(mesAnterior)
+                    && tocaA(empleado, mesAnterior, "horas", cycle.getHorasAlMesCerradoRate())) {
+                elegidos.add(empleado);
+            }
+        }
+        return elegidos;
+    }
+
+    private boolean borrarHoras(SeededEmployee empleado, int periodo) {
+        try {
+            lifecycleClient.deletePayrollInput(
+                    properties.getDefaults().getRuleSystemCode(),
+                    empleado.employeeTypeCode(),
+                    empleado.employeeNumber(),
+                    properties.getPayrollInput().getConceptCode(),
+                    periodo);
+            return true;
+        } catch (RuntimeException ex) {
+            // Si la correccion de horas no se llego a escribir, no hay nada que borrar. Se cuenta lo
+            // borrado, no lo intentado.
+            log.debug("No se pudieron borrar las horas de {} en {}: {}",
+                    empleado.employeeNumber(), periodo, ex.getMessage());
+            return false;
+        }
     }
 
     /**
@@ -400,10 +452,10 @@ public class RunPayrollCycleService {
         }
     }
 
-    private record Correcciones(int horas, int ausencias, int fueraDelLimite) {
+    private record Correcciones(int horas, int ausencias, int fueraDelLimite, int horasQuitadas) {
 
         static Correcciones ninguna() {
-            return new Correcciones(0, 0, 0);
+            return new Correcciones(0, 0, 0, 0);
         }
     }
 }

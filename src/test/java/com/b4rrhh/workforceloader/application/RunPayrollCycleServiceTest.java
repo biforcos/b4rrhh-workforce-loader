@@ -94,6 +94,24 @@ class RunPayrollCycleServiceTest {
         assertThat(elegidos(plantillaDe(1000), 202603, "horas", 0.0)).isEmpty();
     }
 
+    /**
+     * La correccion que quita solo se lleva horas que la de horas escribio ese mes
+     * (b4rrhh/backend#137): si eligiera a otros, borraria entradas que no existen, no dejaria marca
+     * ni atraso, y el camino se quedaria sin sembrar con la corrida en verde.
+     */
+    @Test
+    void theHoursRemovedAreHoursThatWereWrittenAndPaid() {
+        List<SeededEmployee> plantilla = plantillaDe(1000);
+        LoaderProperties.Cycle cycle = new LoaderProperties().getCycle();
+
+        List<String> quitadas = RunPayrollCycleService.aQuienSeLeQuitanHoras(plantilla, 202603, cycle)
+                .stream().map(SeededEmployee::employeeNumber).toList();
+
+        assertThat(quitadas).hasSize(cycle.getHorasQuitadasEmployees());
+        assertThat(elegidos(plantilla, 202603, "horas", cycle.getHorasAlMesCerradoRate()))
+                .containsAll(quitadas);
+    }
+
     @Test
     void goesBackAcrossTheNewYear() {
         assertThat(RunPayrollCycleService.restarMeses(202603, 5)).isEqualTo(202510);

@@ -1007,6 +1007,19 @@ public class LoaderProperties {
         @Min(1)
         private int fueraDelLimiteMesesAtras = 5;
 
+        /**
+         * Cuantos empleados, cada mes, <b>pierden</b> unas horas que ya se les pagaron
+         * ({@code b4rrhh/backend#137}).
+         *
+         * <p>Las demas correcciones solo anaden, y un atraso que devuelve dinero por un concepto que
+         * ya no esta en el vigente es un camino distinto: el que revento en la demo del 162 sin que
+         * la semilla lo pudiera ver. Se borran las horas que la correccion de horas escribio al mes
+         * anterior, que estan pagadas seguro —como atraso en el recibo del mes que se acaba de
+         * cerrar—. Un punado, como la correccion profunda: lo que se ensena es que el caso existe.
+         */
+        @Min(0)
+        private int horasQuitadasEmployees = 3;
+
         /** Cada cuanto se pregunta si la ejecucion ha terminado, en segundos. */
         @Min(1)
         private int pollSeconds = 10;
@@ -1068,6 +1081,14 @@ public class LoaderProperties {
 
         public void setFueraDelLimiteEmployees(int fueraDelLimiteEmployees) {
             this.fueraDelLimiteEmployees = fueraDelLimiteEmployees;
+        }
+
+        public int getHorasQuitadasEmployees() {
+            return horasQuitadasEmployees;
+        }
+
+        public void setHorasQuitadasEmployees(int horasQuitadasEmployees) {
+            this.horasQuitadasEmployees = horasQuitadasEmployees;
         }
 
         public int getFueraDelLimiteMesesAtras() {

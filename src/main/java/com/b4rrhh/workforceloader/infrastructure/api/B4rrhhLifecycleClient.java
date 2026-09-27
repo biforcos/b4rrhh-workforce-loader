@@ -342,6 +342,36 @@ public class B4rrhhLifecycleClient {
              * no una correccion.
              */
     /**
+     * Borra una entrada de un mes ({@code b4rrhh/backend#137}): la correccion que quita. Sobre un mes
+     * ya entregado deja su marca como cualquier otra escritura, y el atraso sale negativo.
+     */
+    public void deletePayrollInput(
+            String ruleSystemCode,
+            String employeeTypeCode,
+            String employeeNumber,
+            String conceptCode,
+            int period
+    ) {
+        backendTargetGuard.verifyBeforeWriting();
+        try {
+            webClient.delete()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/payroll-inputs/{conceptCode}")
+                            .queryParam("period", period)
+                            .build(ruleSystemCode, employeeTypeCode, employeeNumber, conceptCode))
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
+        } catch (WebClientResponseException ex) {
+            throw new RuntimeException("HTTP error during payroll input delete: status="
+                    + ex.getStatusCode() + ", body=" + ex.getResponseBodyAsString(), ex);
+        } catch (Exception ex) {
+            throw new RuntimeException("Connection/runtime error during payroll input delete: "
+                    + ex.getMessage(), ex);
+        }
+    }
+
+    /**
      * Corrige la cantidad de una entrada que ya existe ({@code workforce-loader#16}).
      *
      * <p>Hace falta porque una correccion a un mes cerrado no siempre es una entrada nueva: si esa

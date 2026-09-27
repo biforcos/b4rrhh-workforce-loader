@@ -115,10 +115,10 @@ public class RunReportWriter {
         log.info("Ciclo de nomina ejecutado: {} meses, limite de retro {} meses atras",
                 cycle.months().size(), cycle.retroLimitMonthsBack());
         log.info("  mes     ejecucion  recibos  no-val  error   retro  vigentes  cerrados  "
-                + "horas  ausenc  fuera-lim  seg");
+                + "horas  ausenc  fuera-lim  quitadas  seg");
         for (PayrollCycleMonth mes : cycle.months()) {
             log.info(String.format(
-                    "  %-6d  %-9s  %7d  %6d  %5d  %6d  %8d  %8d  %5d  %6d  %9d  %4d",
+                    "  %-6d  %-9s  %7d  %6d  %5d  %6d  %8d  %8d  %5d  %6d  %9d  %8d  %4d",
                     mes.period(),
                     mes.runId() == null ? "?" : String.valueOf(mes.runId()),
                     mes.calculated(),
@@ -130,6 +130,7 @@ public class RunReportWriter {
                     mes.horasAlMesCerrado(),
                     mes.ausenciasAlAnterior(),
                     mes.fueraDelLimite(),
+                    mes.horasQuitadas(),
                     mes.secondsElapsed()));
         }
         log.info("  El mes {} se queda ABIERTO, calculado y con sus atrasos dentro.",

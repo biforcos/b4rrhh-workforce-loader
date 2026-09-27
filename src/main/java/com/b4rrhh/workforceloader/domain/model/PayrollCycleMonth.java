@@ -19,6 +19,7 @@ package com.b4rrhh.workforceloader.domain.model;
  * @param horasAlMesCerrado correcciones de horas escritas a ESTE mes despues de cerrarlo
  * @param ausenciasAlAnterior ausencias olvidadas escritas al mes anterior
  * @param fueraDelLimite    correcciones escritas mas atras de lo que el limite alcanza
+ * @param horasQuitadas     horas ya pagadas del mes anterior que se borraron (b4rrhh/backend#137)
  * @param secondsElapsed    lo que tardo el mes entero, que es lo que se acumula al final
  */
 public record PayrollCycleMonth(
@@ -34,6 +35,7 @@ public record PayrollCycleMonth(
         int horasAlMesCerrado,
         int ausenciasAlAnterior,
         int fueraDelLimite,
+        int horasQuitadas,
         long secondsElapsed
 ) {
 }
