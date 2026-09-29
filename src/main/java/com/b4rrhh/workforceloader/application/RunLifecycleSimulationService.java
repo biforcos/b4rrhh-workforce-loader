@@ -36,6 +36,8 @@ import java.util.Random;
 @Service
 public class RunLifecycleSimulationService implements RunLifecycleSimulationUseCase {
 
+    private static final String HIRING_ENTRY_REASON_CODE = "HIRING";
+
     private final LoaderProperties properties;
     private final SyntheticEmployeeGenerator syntheticEmployeeGenerator;
     private final EmployeeLifecycleScenarioGenerator scenarioGenerator;
@@ -503,7 +505,10 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                 employee.lastName2(),
                 employee.preferredName(),
                 event.effectiveDate(),
-                normalizeCode(resolvedHireData.entryReasonCode()),
+                // Un alta entra siempre como HIRING (b4rrhh/backend#143): el backend rechaza
+                // cualquier otro motivo. El motivo sorteado se sigue sorteando —lo usa la
+                // readmision y sacarlo moveria el Random de toda la plantilla—, pero no viaja.
+                HIRING_ENTRY_REASON_CODE,
                 normalizeCode(resolvedHireData.companyCode()),
                 normalizeCode(resolvedHireData.workCenterCode()),
                 new HireEmployeeRequest.Contract(
