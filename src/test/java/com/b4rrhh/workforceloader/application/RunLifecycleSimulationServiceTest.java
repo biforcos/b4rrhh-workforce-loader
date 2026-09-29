@@ -179,14 +179,18 @@ class RunLifecycleSimulationServiceTest {
         LoaderRunSummary summary = service.run().summary();
 
         assertThat(summary.hiresSuccess()).isEqualTo(1);
-        assertThat(summary.personalDataRequested()).isEqualTo(3);
-        assertThat(summary.personalDataSuccess()).isEqualTo(3);
+        // El documento principal viaja en el alta desde el b4rrhh/backend#141: no es un dato
+        // personal aparte.
+        assertThat(summary.personalDataRequested()).isEqualTo(2);
+        assertThat(summary.personalDataSuccess()).isEqualTo(2);
+        assertThat(client.hireRequests.getFirst().identifier())
+                .isEqualTo(new HireEmployeeRequest.Identifier("NATIONAL_ID", "00000001R", "ESP", LocalDate.of(2030, 1, 1)));
         assertThat(client.personalDataEmployeeNumbers).containsOnly("MAS000001");
         assertThat(client.addressRequests).singleElement().extracting(CreateAddressRequest::addressTypeCode).isEqualTo("HOME");
         assertThat(client.contactRequests).singleElement().extracting(CreateContactRequest::contactValue).isEqualTo("ana.garcia@b4rrhh.example");
-        assertThat(client.identifierRequests).singleElement().extracting(CreateIdentifierRequest::isPrimary).isEqualTo(true);
+        assertThat(client.identifierRequests).isEmpty();
         assertThat(summary.results()).extracting(result -> result.eventType())
-                .containsExactly("HIRE", "CREATE_ADDRESS", "CREATE_CONTACT", "CREATE_IDENTIFIER");
+                .containsExactly("HIRE", "CREATE_ADDRESS", "CREATE_CONTACT");
     }
 
     @Test
@@ -218,8 +222,8 @@ class RunLifecycleSimulationServiceTest {
 
         LoaderRunSummary summary = service.run().summary();
 
-        assertThat(summary.personalDataRequested()).isEqualTo(3);
-        assertThat(summary.personalDataSuccess()).isEqualTo(2);
+        assertThat(summary.personalDataRequested()).isEqualTo(2);
+        assertThat(summary.personalDataSuccess()).isEqualTo(1);
         assertThat(summary.personalDataFailed()).isEqualTo(1);
         assertThat(summary.terminationsSuccess()).isEqualTo(1);
         assertThat(summary.results()).filteredOn(result -> !result.success()).singleElement()

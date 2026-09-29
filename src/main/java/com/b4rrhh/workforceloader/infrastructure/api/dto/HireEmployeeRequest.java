@@ -17,8 +17,18 @@ public record HireEmployeeRequest(
         Contract contract,
         LaborClassification laborClassification,
         WorkingTime workingTime,
-        CostCenterDistribution costCenterDistribution
+        CostCenterDistribution costCenterDistribution,
+        Identifier identifier
 ) {
+
+    /** El documento de la persona, que el alta exige desde el b4rrhh/backend#141. */
+    public record Identifier(
+            String identifierTypeCode,
+            String identifierValue,
+            String issuingCountryCode,
+            LocalDate expirationDate
+    ) {
+    }
 
     public record Contract(
             String contractTypeCode,

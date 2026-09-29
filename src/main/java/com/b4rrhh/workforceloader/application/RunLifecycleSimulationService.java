@@ -377,7 +377,11 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                     employee.employeeNumber(), "CREATE_CONTACT", hireDate, outcome.success(), outcome.message()
             ));
         }
+        SyntheticPersonalData.Identifier sentWithTheHire = primaryIdentifier(employee);
         for (SyntheticPersonalData.Identifier identifier : employee.personalData().identifiers()) {
+            if (identifier == sentWithTheHire) {
+                continue;
+            }
             EventOutcome outcome = executeCreateIdentifier(employee, new CreateIdentifierRequest(
                     normalizeCode(identifier.identifierTypeCode()),
                     identifier.identifierValue(),
@@ -520,8 +524,34 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                         normalizeCode(resolvedHireData.agreementCategoryCode())
                 ),
                 buildHireWorkingTime(employee, resolvedHireData),
-                buildHireCostCenterDistribution(employee, event.effectiveDate())
+                buildHireCostCenterDistribution(employee, event.effectiveDate()),
+                hireIdentifier(employee)
         );
+    }
+
+    /**
+     * El documento principal viaja en el alta, que lo exige y comprueba que nadie mas lo tenga
+     * (b4rrhh/backend#141). Los demas siguen yendo despues, uno a uno, en los datos personales.
+     */
+    private static HireEmployeeRequest.Identifier hireIdentifier(SyntheticEmployee employee) {
+        SyntheticPersonalData.Identifier primary = primaryIdentifier(employee);
+        if (primary == null) {
+            return null;
+        }
+        return new HireEmployeeRequest.Identifier(
+                normalizeCode(primary.identifierTypeCode()),
+                primary.identifierValue(),
+                normalizeCode(primary.issuingCountryCode()),
+                primary.expirationDate()
+        );
+    }
+
+    private static SyntheticPersonalData.Identifier primaryIdentifier(SyntheticEmployee employee) {
+        List<SyntheticPersonalData.Identifier> identifiers = employee.personalData().identifiers();
+        return identifiers.stream()
+                .filter(SyntheticPersonalData.Identifier::primary)
+                .findFirst()
+                .orElse(identifiers.isEmpty() ? null : identifiers.get(0));
     }
 
     private TerminateEmployeeRequest toTerminateRequest(EmployeeLifecycleEvent event, String exitReasonCode) {
