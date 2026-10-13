@@ -46,6 +46,8 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
     private final HireWindowResolver hireWindowResolver;
     private final WorkingTimeChangeDateResolver workingTimeChangeDateResolver;
 
+    private final SpanishAddressPlacer spanishAddressPlacer;
+
     public RunLifecycleSimulationService(
             LoaderProperties properties,
             SyntheticEmployeeGenerator syntheticEmployeeGenerator,
@@ -53,7 +55,8 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
             B4rrhhLifecycleClient b4rrhhLifecycleClient,
             CostCenterMutationGenerator costCenterMutationGenerator,
             HireWindowResolver hireWindowResolver,
-            WorkingTimeChangeDateResolver workingTimeChangeDateResolver
+            WorkingTimeChangeDateResolver workingTimeChangeDateResolver,
+            SpanishAddressPlacer spanishAddressPlacer
     ) {
         this.properties = properties;
         this.syntheticEmployeeGenerator = syntheticEmployeeGenerator;
@@ -62,6 +65,7 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         this.costCenterMutationGenerator = costCenterMutationGenerator;
         this.hireWindowResolver = hireWindowResolver;
         this.workingTimeChangeDateResolver = workingTimeChangeDateResolver;
+        this.spanishAddressPlacer = spanishAddressPlacer;
     }
 
     @Override
@@ -294,7 +298,8 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
                     // Dirección, contacto e identificador no caben en el payload del alta: van justo
                     // detrás, ya con el número que devolvió el backend. Si una falla, se anota y el
                     // escenario sigue —ningún evento posterior depende de ellos— (workforce-loader#3).
-                    executePersonalData(employee, event.effectiveDate(), results, personalData);
+                    executePersonalData(employee, event.effectiveDate(), executionState.getCurrentWorkCenterCode(),
+                            results, personalData);
                 }
             }
         }
@@ -358,11 +363,12 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
     private void executePersonalData(
             SyntheticEmployee employee,
             LocalDate hireDate,
+            String workCenterCode,
             List<LifecycleEventExecutionResult> results,
             PersonalDataTally tally
     ) {
         for (SyntheticPersonalData.Address address : employee.personalData().addresses()) {
-            EventOutcome outcome = executeCreateAddress(employee, toCreateAddressRequest(address));
+            EventOutcome outcome = executeCreateAddress(employee, toCreateAddressRequest(employee, workCenterCode, address));
             tally.record(outcome);
             results.add(new LifecycleEventExecutionResult(
                     employee.employeeNumber(), "CREATE_ADDRESS", address.startDate(), outcome.success(), outcome.message()
@@ -396,14 +402,33 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         }
     }
 
-    private static CreateAddressRequest toCreateAddressRequest(SyntheticPersonalData.Address address) {
+    /**
+     * La dirección que se da de alta. La española toma su sitio del maestro del territorio, según
+     * dónde esté el centro de alta (workforce-loader#17); la de fuera va como sale del generador.
+     */
+    private CreateAddressRequest toCreateAddressRequest(
+            SyntheticEmployee employee,
+            String workCenterCode,
+            SyntheticPersonalData.Address address
+    ) {
+        String ruleSystemCode = normalizeCode(employee.ruleSystemCode());
+        CreateAddressRequest.PostalAddress postal;
+        if (address.isSpanish()) {
+            spanishAddressPlacer.requireStreetType(ruleSystemCode, address.streetTypeCode());
+            SpanishAddressPlacer.Place place = spanishAddressPlacer.place(
+                    ruleSystemCode, normalizeCode(workCenterCode), address.locationSeed());
+            postal = new CreateAddressRequest.PostalAddress(
+                    address.streetTypeCode(), address.streetName(), address.streetNumber(), address.floor(),
+                    address.door(), null, place.municipalityCode(), place.provinceCode(), place.postalCode(),
+                    SpanishAddressPlacer.SPAIN);
+        } else {
+            postal = new CreateAddressRequest.PostalAddress(
+                    null, address.streetName(), address.streetNumber(), address.floor(), address.door(),
+                    address.locality(), null, null, address.postalCode(), normalizeCode(address.countryCode()));
+        }
         return new CreateAddressRequest(
                 normalizeCode(address.addressTypeCode()),
-                address.street(),
-                address.city(),
-                normalizeCode(address.countryCode()),
-                address.postalCode(),
-                address.regionCode(),
+                postal,
                 address.startDate(),
                 address.endDate()
         );
@@ -413,8 +438,9 @@ public class RunLifecycleSimulationService implements RunLifecycleSimulationUseC
         if (properties.getRun().isDryRun()) {
             return EventOutcome.success("DRY-RUN payload -> " + summarizeEmployee(employee)
                     + ", addressTypeCode=" + request.addressTypeCode()
-                    + ", city=" + request.city()
-                    + ", countryCode=" + request.countryCode()
+                    + ", municipalityCode=" + request.address().municipalityCode()
+                    + ", postalCode=" + request.address().postalCode()
+                    + ", countryCode=" + request.address().countryCode()
                     + ", startDate=" + request.startDate()
                     + ", endDate=" + request.endDate());
         }

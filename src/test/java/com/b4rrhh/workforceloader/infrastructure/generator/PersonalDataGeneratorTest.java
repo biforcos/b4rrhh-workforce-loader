@@ -150,10 +150,19 @@ class PersonalDataGeneratorTest {
         for (SyntheticEmployee employee : employees) {
             List<Address> addresses = employee.personalData().addresses();
             assertThat(addresses).allSatisfy(address -> {
-                assertThat(address.street()).isNotBlank();
-                assertThat(address.city()).isNotBlank();
-                assertThat(address.postalCode()).isNotBlank();
-                assertThat(address.regionCode()).isNotBlank();
+                assertThat(address.streetName()).isNotBlank();
+                assertThat(address.streetNumber()).isNotBlank();
+                if (address.isSpanish()) {
+                    // El sitio lo pone el territorio al dar de alta (workforce-loader#17): aqui solo
+                    // el tipo de via del catalogo, y ni poblacion ni CP inventados.
+                    assertThat(address.streetTypeCode()).isNotBlank();
+                    assertThat(address.locality()).isNull();
+                    assertThat(address.postalCode()).isNull();
+                } else {
+                    assertThat(address.streetTypeCode()).isNull();
+                    assertThat(address.locality()).isNotBlank();
+                    assertThat(address.postalCode()).isNotBlank();
+                }
                 assertThat(address.startDate()).isAfterOrEqualTo(employee.hireDate());
                 if (address.endDate() != null) {
                     assertThat(address.endDate()).isAfter(address.startDate());

@@ -25,16 +25,30 @@ public record SyntheticPersonalData(
         return new SyntheticPersonalData(List.of(), List.of(), List.of());
     }
 
+    /**
+     * Una dirección como la sale del generador (workforce-loader#17). La de fuera de España va entera:
+     * la población en {@code locality} y un CP libre. La española no lleva ni población ni CP: el
+     * sitio se lo da el maestro del territorio al dar de alta, según dónde esté el centro, con el
+     * azar de {@code locationSeed}, que es suyo y no el de la simulación.
+     */
     public record Address(
             String addressTypeCode,
-            String street,
-            String city,
-            String countryCode,
+            String streetTypeCode,
+            String streetName,
+            String streetNumber,
+            String floor,
+            String door,
+            String locality,
             String postalCode,
-            String regionCode,
+            String countryCode,
+            long locationSeed,
             LocalDate startDate,
             LocalDate endDate
     ) {
+
+        public boolean isSpanish() {
+            return "ESP".equals(countryCode);
+        }
     }
 
     public record Contact(

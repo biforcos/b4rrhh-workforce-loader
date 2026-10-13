@@ -105,7 +105,7 @@ public class SyntheticEmployeeGenerator {
         LoaderProperties.Defaults defaults = properties.getDefaults();
         LoaderProperties.Generation generation = properties.getGeneration();
         WorkingTimePercentageResolver workingTimePercentageResolver = new WorkingTimePercentageResolver();
-        PersonalDataGenerator personalDataGenerator = new PersonalDataGenerator();
+        PersonalDataGenerator personalDataGenerator = new PersonalDataGenerator(generation.getSeed());
 
         Random random = new Random(generation.getSeed());
         List<SyntheticEmployee> employees = new ArrayList<>(generation.getCount());

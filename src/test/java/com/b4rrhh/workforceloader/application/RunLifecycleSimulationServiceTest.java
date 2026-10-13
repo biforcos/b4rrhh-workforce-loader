@@ -61,7 +61,8 @@ class RunLifecycleSimulationServiceTest {
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
                 new FixedHireWindowResolver(),
-                new WorkingTimeChangeDateResolver(baseProperties())
+                new WorkingTimeChangeDateResolver(baseProperties()),
+                new FixedSpanishAddressPlacer()
         );
 
         LoaderRunSummary summary = service.run().summary();
@@ -100,7 +101,8 @@ class RunLifecycleSimulationServiceTest {
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
                 new FixedHireWindowResolver(),
-                new WorkingTimeChangeDateResolver(baseProperties())
+                new WorkingTimeChangeDateResolver(baseProperties()),
+                new FixedSpanishAddressPlacer()
         );
 
         LoaderRunSummary summary = service.run().summary();
@@ -136,7 +138,8 @@ class RunLifecycleSimulationServiceTest {
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
                 new FixedHireWindowResolver(),
-                new WorkingTimeChangeDateResolver(baseProperties())
+                new WorkingTimeChangeDateResolver(baseProperties()),
+                new FixedSpanishAddressPlacer()
         );
 
         LoaderRunSummary summary = service.run().summary();
@@ -173,7 +176,8 @@ class RunLifecycleSimulationServiceTest {
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
                 new FixedHireWindowResolver(),
-                new WorkingTimeChangeDateResolver(baseProperties())
+                new WorkingTimeChangeDateResolver(baseProperties()),
+                new FixedSpanishAddressPlacer()
         );
 
         LoaderRunSummary summary = service.run().summary();
@@ -187,6 +191,10 @@ class RunLifecycleSimulationServiceTest {
                 .isEqualTo(new HireEmployeeRequest.Identifier("NATIONAL_ID", "00000001R", "ESP", LocalDate.of(2030, 1, 1)));
         assertThat(client.personalDataEmployeeNumbers).containsOnly("MAS000001");
         assertThat(client.addressRequests).singleElement().extracting(CreateAddressRequest::addressTypeCode).isEqualTo("HOME");
+        // La española toma su sitio del territorio: aqui, el del doble (workforce-loader#17).
+        assertThat(client.addressRequests.getFirst().address())
+                .isEqualTo(new CreateAddressRequest.PostalAddress(
+                        "CL", "Mayor", "1", null, null, null, "28079", "28", "28013", "ESP"));
         assertThat(client.contactRequests).singleElement().extracting(CreateContactRequest::contactValue).isEqualTo("ana.garcia@b4rrhh.example");
         assertThat(client.identifierRequests).isEmpty();
         assertThat(summary.results()).extracting(result -> result.eventType())
@@ -217,7 +225,8 @@ class RunLifecycleSimulationServiceTest {
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
                 new FixedHireWindowResolver(),
-                new WorkingTimeChangeDateResolver(baseProperties())
+                new WorkingTimeChangeDateResolver(baseProperties()),
+                new FixedSpanishAddressPlacer()
         );
 
         LoaderRunSummary summary = service.run().summary();
@@ -236,7 +245,7 @@ class RunLifecycleSimulationServiceTest {
     private static SyntheticPersonalData personalData() {
         return new SyntheticPersonalData(
                 List.of(new SyntheticPersonalData.Address(
-                        "home", "Calle Mayor, 1", "Madrid", "esp", "28001", "ES-MD", LocalDate.of(2024, 1, 10), null
+                        "home", "CL", "Mayor", "1", null, null, null, null, "ESP", 7L, LocalDate.of(2024, 1, 10), null
                 )),
                 List.of(new SyntheticPersonalData.Contact("email", "ana.garcia@b4rrhh.example")),
                 List.of(new SyntheticPersonalData.Identifier("national_id", "00000001R", "esp", LocalDate.of(2030, 1, 1), true))
@@ -270,7 +279,8 @@ class RunLifecycleSimulationServiceTest {
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
                 new FixedHireWindowResolver(),
-                new WorkingTimeChangeDateResolver(baseProperties())
+                new WorkingTimeChangeDateResolver(baseProperties()),
+                new FixedSpanishAddressPlacer()
         );
 
         LoaderRunSummary summary = service.run().summary();
@@ -354,7 +364,8 @@ class RunLifecycleSimulationServiceTest {
                 client,
                 new CostCenterMutationGenerator(new FixedCatalogApiClient(properties, "CC_ADMIN", "CC_HR"), properties),
                 new FixedHireWindowResolver(),
-                new WorkingTimeChangeDateResolver(baseProperties())
+                new WorkingTimeChangeDateResolver(baseProperties()),
+                new FixedSpanishAddressPlacer()
         );
 
         LoaderRunSummary summary = service.run().summary();
@@ -399,7 +410,8 @@ class RunLifecycleSimulationServiceTest {
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
                 new FixedHireWindowResolver(),
-                new WorkingTimeChangeDateResolver(baseProperties())
+                new WorkingTimeChangeDateResolver(baseProperties()),
+                new FixedSpanishAddressPlacer()
         );
 
         LoaderRunSummary summary = service.run().summary();
@@ -446,7 +458,8 @@ class RunLifecycleSimulationServiceTest {
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
                 new FixedHireWindowResolver(),
-                new WorkingTimeChangeDateResolver(baseProperties())
+                new WorkingTimeChangeDateResolver(baseProperties()),
+                new FixedSpanishAddressPlacer()
         );
 
         LoaderRunSummary summary = service.run().summary();
@@ -486,7 +499,8 @@ class RunLifecycleSimulationServiceTest {
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
                 new FixedHireWindowResolver(),
-                new WorkingTimeChangeDateResolver(baseProperties())
+                new WorkingTimeChangeDateResolver(baseProperties()),
+                new FixedSpanishAddressPlacer()
         );
 
         LoaderRunSummary summary = service.run().summary();
@@ -537,7 +551,8 @@ class RunLifecycleSimulationServiceTest {
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
                 new FixedHireWindowResolver(),
-                new WorkingTimeChangeDateResolver(baseProperties())
+                new WorkingTimeChangeDateResolver(baseProperties()),
+                new FixedSpanishAddressPlacer()
         );
 
         LoaderRunSummary summary = service.run().summary();
@@ -588,7 +603,8 @@ class RunLifecycleSimulationServiceTest {
                 client,
                 new CostCenterMutationGenerator(null, baseProperties()),
                 new FixedHireWindowResolver(),
-                new WorkingTimeChangeDateResolver(baseProperties())
+                new WorkingTimeChangeDateResolver(baseProperties()),
+                new FixedSpanishAddressPlacer()
         );
 
         LoaderRunSummary summary = service.run().summary();
@@ -824,6 +840,23 @@ class RunLifecycleSimulationServiceTest {
         ) {
             rehireRequests.add(request);
             return new RehireEmployeeResponse("OK", "rehire");
+        }
+    }
+
+    /** El territorio sin API: todo el mundo vive en Madrid, 28013, y todo tipo de via existe. */
+    private static final class FixedSpanishAddressPlacer extends SpanishAddressPlacer {
+
+        private FixedSpanishAddressPlacer() {
+            super(null);
+        }
+
+        @Override
+        public Place place(String ruleSystemCode, String workCenterCode, long locationSeed) {
+            return new Place("28", "28079", "28013");
+        }
+
+        @Override
+        public void requireStreetType(String ruleSystemCode, String streetTypeCode) {
         }
     }
 }

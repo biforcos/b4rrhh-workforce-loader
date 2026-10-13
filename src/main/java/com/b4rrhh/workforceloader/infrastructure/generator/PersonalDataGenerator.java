@@ -81,45 +81,65 @@ final class PersonalDataGenerator {
     private static final String SPAIN = "ESP";
     private static final List<String> FOREIGN_PASSPORT_COUNTRIES = List.of("PRT", "FRA", "ITA", "DEU", "GBR", "ARG");
 
-    private record City(String name, String postalCodePrefix, String regionCode, String countryCode) {
+    /**
+     * Una ciudad del sorteo. Las españolas ya sólo deciden que la dirección es española: el sitio lo
+     * pone el maestro del territorio (workforce-loader#17). Siguen siendo diez, en el mismo orden,
+     * porque la tirada que las elige es del azar compartido y quitarlas movería la plantilla entera.
+     */
+    private record City(String name, String postalCodePrefix, String countryCode) {
     }
 
     private static final List<City> SPANISH_CITIES = List.of(
-            new City("Madrid", "28", "ES-MD", SPAIN),
-            new City("Barcelona", "08", "ES-CT", SPAIN),
-            new City("Valencia", "46", "ES-VC", SPAIN),
-            new City("Sevilla", "41", "ES-AN", SPAIN),
-            new City("Zaragoza", "50", "ES-AR", SPAIN),
-            new City("Malaga", "29", "ES-AN", SPAIN),
-            new City("Bilbao", "48", "ES-PV", SPAIN),
-            new City("Murcia", "30", "ES-MC", SPAIN),
-            new City("Valladolid", "47", "ES-CL", SPAIN),
-            new City("A Coruna", "15", "ES-GA", SPAIN)
+            new City("Madrid", "28", SPAIN),
+            new City("Barcelona", "08", SPAIN),
+            new City("Valencia", "46", SPAIN),
+            new City("Sevilla", "41", SPAIN),
+            new City("Zaragoza", "50", SPAIN),
+            new City("Malaga", "29", SPAIN),
+            new City("Bilbao", "48", SPAIN),
+            new City("Murcia", "30", SPAIN),
+            new City("Valladolid", "47", SPAIN),
+            new City("A Coruna", "15", SPAIN)
     );
 
     private static final List<City> FOREIGN_CITIES = List.of(
-            new City("Lisboa", "1000-", "PT-11", "PRT"),
-            new City("Porto", "4000-", "PT-13", "PRT"),
-            new City("Toulouse", "31", "FR-OCC", "FRA")
+            new City("Lisboa", "1000-", "PRT"),
+            new City("Porto", "4000-", "PRT"),
+            new City("Toulouse", "31", "FRA")
     );
 
+    /** Una vía: el tipo del catálogo (siglas del Catastro) y el nombre. Fuera de España, sin tipo. */
+    record StreetName(String typeCode, String name) {
+    }
+
     /** Calles que hay en cualquier ciudad, para no señalar ninguna dirección real. */
-    private static final Map<String, List<String>> STREETS_BY_COUNTRY = Map.of(
+    private static final Map<String, List<StreetName>> STREETS_BY_COUNTRY = Map.of(
             SPAIN, List.of(
-                    "Calle Mayor", "Calle Real", "Avenida de la Constitucion", "Plaza de Espana",
-                    "Paseo de la Estacion", "Calle Nueva", "Calle del Sol", "Camino Viejo",
-                    "Ronda de Poniente", "Travesia de la Iglesia"
+                    new StreetName("CL", "Mayor"), new StreetName("CL", "Real"),
+                    new StreetName("AV", "de la Constitución"), new StreetName("PZ", "de España"),
+                    new StreetName("PS", "de la Estación"), new StreetName("CL", "Nueva"),
+                    new StreetName("CL", "del Sol"), new StreetName("CM", "Viejo"),
+                    new StreetName("RD", "de Poniente"), new StreetName("TR", "de la Iglesia")
             ),
-            "PRT", List.of("Rua Direita", "Avenida da Liberdade", "Rua Nova", "Largo do Mercado"),
-            "FRA", List.of("Rue de la Gare", "Avenue de la Republique", "Place du Marche", "Rue Neuve")
+            "PRT", List.of(new StreetName(null, "Rua Direita"), new StreetName(null, "Avenida da Liberdade"),
+                    new StreetName(null, "Rua Nova"), new StreetName(null, "Largo do Mercado")),
+            "FRA", List.of(new StreetName(null, "Rue de la Gare"), new StreetName(null, "Avenue de la Republique"),
+                    new StreetName(null, "Place du Marche"), new StreetName(null, "Rue Neuve"))
     );
 
     /** Correos ya repartidos en esta tirada: dos «ana.garcia» se distinguen con un sufijo, como en cualquier empresa. */
     private final Set<String> usedEmails = new HashSet<>();
 
+    /** La semilla de la corrida: de ella sale el azar propio de cada dirección (workforce-loader#17). */
+    private final long seed;
+
+    PersonalDataGenerator(long seed) {
+        this.seed = seed;
+    }
+
     SyntheticPersonalData generate(SyntheticEmployee.PersonName name, LocalDate hireDate, int sequence, Random random) {
         return new SyntheticPersonalData(
-                addresses(hireDate, random),
+                addresses(hireDate, sequence, random),
                 contacts(name, sequence, random),
                 identifiers(hireDate, sequence, random)
         );
@@ -127,25 +147,36 @@ final class PersonalDataGenerator {
 
     // ---- Direcciones ----
 
-    private List<Address> addresses(LocalDate hireDate, Random random) {
+    private List<Address> addresses(LocalDate hireDate, int sequence, Random random) {
         List<Address> addresses = new ArrayList<>();
 
         City firstHome = pickHomeCity(random);
         if (chance(MOVED_HOME_PERCENT, random)) {
             LocalDate movedOut = hireDate.plusDays(60 + random.nextInt(340));
-            addresses.add(address("HOME", firstHome, hireDate, movedOut, random));
-            addresses.add(address("HOME", pickHomeCity(random), movedOut.plusDays(1), null, random));
+            addresses.add(address("HOME", firstHome, hireDate, movedOut, random, locationSeed(sequence, addresses.size())));
+            addresses.add(address("HOME", pickHomeCity(random), movedOut.plusDays(1), null, random,
+                    locationSeed(sequence, addresses.size())));
         } else {
-            addresses.add(address("HOME", firstHome, hireDate, null, random));
+            addresses.add(address("HOME", firstHome, hireDate, null, random, locationSeed(sequence, addresses.size())));
         }
 
         if (chance(FISCAL_ADDRESS_PERCENT, random)) {
-            addresses.add(address("FISCAL", pickFrom(SPANISH_CITIES, random), hireDate, null, random));
+            addresses.add(address("FISCAL", pickFrom(SPANISH_CITIES, random), hireDate, null, random,
+                    locationSeed(sequence, addresses.size())));
         }
         if (chance(MAILING_ADDRESS_PERCENT, random)) {
-            addresses.add(address("MAILING", pickFrom(SPANISH_CITIES, random), hireDate, null, random));
+            addresses.add(address("MAILING", pickFrom(SPANISH_CITIES, random), hireDate, null, random,
+                    locationSeed(sequence, addresses.size())));
         }
         return addresses;
+    }
+
+    /**
+     * El azar propio de una dirección: de la semilla de la corrida, la fila y el orden de la dirección,
+     * y no del azar compartido. Así colocarla no gasta tiradas de nadie más.
+     */
+    private long locationSeed(int sequence, int index) {
+        return seed * 1_000_003L + sequence * 31L + index;
     }
 
     private static City pickHomeCity(Random random) {
@@ -156,14 +187,33 @@ final class PersonalDataGenerator {
         return cities.get(random.nextInt(cities.size()));
     }
 
-    private static Address address(String typeCode, City city, LocalDate startDate, LocalDate endDate, Random random) {
-        List<String> streets = STREETS_BY_COUNTRY.get(city.countryCode());
-        String street = streets.get(random.nextInt(streets.size())) + ", " + (1 + random.nextInt(120));
+    /**
+     * Las tiradas del azar compartido son las de siempre y en el mismo orden —la vía, el número, el
+     * piso y la puerta, y las tres cifras del CP—, aunque en España el CP ya no se use: dejar de
+     * tirarlas movería todo lo que viene detrás (workforce-loader#17).
+     */
+    private static Address address(
+            String typeCode,
+            City city,
+            LocalDate startDate,
+            LocalDate endDate,
+            Random random,
+            long locationSeed
+    ) {
+        List<StreetName> streets = STREETS_BY_COUNTRY.get(city.countryCode());
+        StreetName street = streets.get(random.nextInt(streets.size()));
+        String number = String.valueOf(1 + random.nextInt(120));
+        String floor = null;
+        String door = null;
         if (SPAIN.equals(city.countryCode()) && random.nextInt(100) < 60) {
-            street += " - " + (1 + random.nextInt(7)) + (char) ('A' + random.nextInt(4));
+            floor = String.valueOf(1 + random.nextInt(7));
+            door = String.valueOf((char) ('A' + random.nextInt(4)));
         }
-        String postalCode = city.postalCodePrefix() + String.format("%03d", 1 + random.nextInt(999));
-        return new Address(typeCode, street, city.name(), city.countryCode(), postalCode, city.regionCode(), startDate, endDate);
+        String drawnPostalCode = city.postalCodePrefix() + String.format("%03d", 1 + random.nextInt(999));
+        boolean spanish = SPAIN.equals(city.countryCode());
+        return new Address(typeCode, street.typeCode(), street.name(), number, floor, door,
+                spanish ? null : city.name(), spanish ? null : drawnPostalCode, city.countryCode(),
+                locationSeed, startDate, endDate);
     }
 
     // ---- Contactos ----
