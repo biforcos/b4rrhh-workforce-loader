@@ -112,12 +112,12 @@ public class CostCenterMutationGenerator {
     private List<CatalogOption> catalog() {
         List<CatalogOption> loaded = catalog;
         if (loaded == null) {
-            loaded = catalogApiClient.getDirectOptionsForField(
+            loaded = CatalogOrder.byCode(catalogApiClient.getDirectOptionsForField(
                     normalizeCode(properties.getDefaults().getRuleSystemCode()),
                     COST_CENTER_RESOURCE,
                     COST_CENTER_FIELD,
                     COST_CENTER
-            );
+            ));
             catalog = loaded;
         }
         return loaded;

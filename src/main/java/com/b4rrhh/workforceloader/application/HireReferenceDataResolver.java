@@ -64,43 +64,43 @@ public class HireReferenceDataResolver {
     public ResolvedHireReferencePools preloadPools(String ruleSystemCode) {
         String normalizedRuleSystemCode = normalizeCode(ruleSystemCode);
 
-        List<CatalogOption> companies = catalogApiClient.getDirectOptionsForField(
+        List<CatalogOption> companies = CatalogOrder.byCode(catalogApiClient.getDirectOptionsForField(
             normalizedRuleSystemCode,
             PRESENCE_RESOURCE,
             COMPANY_FIELD,
             COMPANY,
             LEGACY_PRESENCE_COMPANY
-        );
-        List<CatalogOption> workCenters = catalogApiClient.getDirectOptionsForField(
+        ));
+        List<CatalogOption> workCenters = CatalogOrder.byCode(catalogApiClient.getDirectOptionsForField(
             normalizedRuleSystemCode,
             WORK_CENTER_RESOURCE,
             WORK_CENTER_FIELD,
             WORK_CENTER
-        );
+        ));
         List<CatalogOption> entryReasons = resolveEntryReasonOptions(normalizedRuleSystemCode);
         List<CatalogOption> exitReasons = resolveExitReasonOptions(normalizedRuleSystemCode);
 
-        List<CatalogOption> agreements = catalogApiClient.getDirectOptionsForField(
+        List<CatalogOption> agreements = CatalogOrder.byCode(catalogApiClient.getDirectOptionsForField(
             normalizedRuleSystemCode,
             LABOR_CLASSIFICATION_RESOURCE,
             AGREEMENT_FIELD,
             AGREEMENT
-        );
+        ));
         List<AgreementWithCategories> agreementsWithCategories = new ArrayList<>(agreements.size());
         for (CatalogOption agreement : agreements) {
-            List<CatalogOption> categories = catalogApiClient.getAgreementCategories(normalizedRuleSystemCode, agreement.code());
+            List<CatalogOption> categories = CatalogOrder.byCode(catalogApiClient.getAgreementCategories(normalizedRuleSystemCode, agreement.code()));
             agreementsWithCategories.add(new AgreementWithCategories(agreement, categories));
         }
 
-        List<CatalogOption> contractTypes = catalogApiClient.getDirectOptionsForField(
+        List<CatalogOption> contractTypes = CatalogOrder.byCode(catalogApiClient.getDirectOptionsForField(
             normalizedRuleSystemCode,
             CONTRACT_RESOURCE,
             CONTRACT_TYPE_FIELD,
             CONTRACT
-        );
+        ));
         List<ContractTypeWithSubtypes> contractTypesWithSubtypes = new ArrayList<>(contractTypes.size());
         for (CatalogOption contractType : contractTypes) {
-            List<CatalogOption> subtypes = catalogApiClient.getContractSubtypes(normalizedRuleSystemCode, contractType.code());
+            List<CatalogOption> subtypes = CatalogOrder.byCode(catalogApiClient.getContractSubtypes(normalizedRuleSystemCode, contractType.code()));
             contractTypesWithSubtypes.add(new ContractTypeWithSubtypes(contractType, subtypes));
         }
 
@@ -122,12 +122,12 @@ public class HireReferenceDataResolver {
      */
     private List<CatalogOption> resolveAbsenceTypeOptions(String ruleSystemCode) {
         try {
-            return catalogApiClient.getDirectOptionsForField(
+            return CatalogOrder.byCode(catalogApiClient.getDirectOptionsForField(
                     ruleSystemCode,
                     ABSENCE_RESOURCE,
                     ABSENCE_TYPE_FIELD,
                     EMPLOYEE_ABSENCE_TYPE
-            );
+            ));
         } catch (IllegalStateException ex) {
             log.warn("Sin tipos de ausencia en el catalogo de {}: no se generan ausencias.", ruleSystemCode);
             return List.of();
@@ -252,7 +252,7 @@ public class HireReferenceDataResolver {
             LocalDate fecha
     ) {
         return delDia(ruleSystemCode, fecha, precargadas,
-                () -> catalogApiClient.getAgreementCategories(ruleSystemCode, convenio.code(), fecha),
+                () -> CatalogOrder.byCode(catalogApiClient.getAgreementCategories(ruleSystemCode, convenio.code(), fecha)),
                 "categorias del convenio " + convenio.code());
     }
 
@@ -264,7 +264,7 @@ public class HireReferenceDataResolver {
             LocalDate fecha
     ) {
         return delDia(ruleSystemCode, fecha, precargados,
-                () -> catalogApiClient.getContractSubtypes(ruleSystemCode, tipo.code(), fecha),
+                () -> CatalogOrder.byCode(catalogApiClient.getContractSubtypes(ruleSystemCode, tipo.code(), fecha)),
                 "subtipos del contrato " + tipo.code());
     }
 
@@ -362,7 +362,7 @@ public class HireReferenceDataResolver {
             String currentWorkCenterCode,
             Random random
     ) {
-        List<CatalogOption> workCenters = catalogApiClient.getWorkCentersByCompany(ruleSystemCode, companyCode, referenceDate);
+        List<CatalogOption> workCenters = CatalogOrder.byCode(catalogApiClient.getWorkCentersByCompany(ruleSystemCode, companyCode, referenceDate));
         CatalogOption selected = pickDifferentOrAny(workCenters, currentWorkCenterCode, random);
         return selected.code();
     }
@@ -405,23 +405,23 @@ public class HireReferenceDataResolver {
     }
 
     private List<CatalogOption> resolveEntryReasonOptions(String ruleSystemCode) {
-        return catalogApiClient.getDirectOptionsForField(
+        return CatalogOrder.byCode(catalogApiClient.getDirectOptionsForField(
                 ruleSystemCode,
                 PRESENCE_RESOURCE,
                 ENTRY_REASON_FIELD,
                 ENTRY_REASON,
                 LEGACY_ENTRY_REASON
-        );
+        ));
     }
 
     private List<CatalogOption> resolveExitReasonOptions(String ruleSystemCode) {
-        return catalogApiClient.getDirectOptionsForField(
+        return CatalogOrder.byCode(catalogApiClient.getDirectOptionsForField(
                 ruleSystemCode,
                 PRESENCE_RESOURCE,
                 EXIT_REASON_FIELD,
                 EXIT_REASON,
                 LEGACY_EXIT_REASON
-        );
+        ));
     }
 
     private static <T> T pick(List<T> values, Random random) {
