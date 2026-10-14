@@ -87,12 +87,12 @@ class SpanishAddressPlacerTest {
         }
 
         @Override
-        public List<String> streetTypeCodes(String ruleSystemCode) {
+        public List<String> streetTypeCodes(String countryCode) {
             return List.of("AV", "CL", "PZ");
         }
 
         @Override
-        public Optional<PostalCodeMunicipality> postalCodeMunicipality(String ruleSystemCode, String postalCode) {
+        public Optional<PostalCodeMunicipality> postalCodeMunicipality(String countryCode, String postalCode) {
             return Optional.ofNullable(KNOWN.get(postalCode))
                     .map(municipality -> new PostalCodeMunicipality(postalCode, postalCode.substring(0, 2), municipality, "x"));
         }

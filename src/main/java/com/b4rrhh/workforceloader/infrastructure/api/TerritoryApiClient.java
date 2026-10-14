@@ -55,10 +55,10 @@ public class TerritoryApiClient {
         return "Bearer " + trimmed;
     }
 
-    /** Los códigos de los tipos de vía del catálogo de la reglamentación. */
-    public List<String> streetTypeCodes(String ruleSystemCode) {
+    /** Los códigos de los tipos de vía de un país: el territorio se lee por país (b4rrhh/backend#169). */
+    public List<String> streetTypeCodes(String countryCode) {
         JsonNode body = webClient.get()
-                .uri("/territory/{ruleSystemCode}/street-types", ruleSystemCode)
+                .uri("/territory/{countryCode}/street-types", countryCode)
                 .retrieve()
                 .bodyToMono(JsonNode.class)
                 .block();
@@ -73,11 +73,9 @@ public class TerritoryApiClient {
      * El municipio que el maestro sugiere para un código postal español, si el código existe y
      * sugiere alguno. Un código que no existe, o que existe sin sugerencia, no da nada.
      */
-    public Optional<PostalCodeMunicipality> postalCodeMunicipality(String ruleSystemCode, String postalCode) {
+    public Optional<PostalCodeMunicipality> postalCodeMunicipality(String countryCode, String postalCode) {
         JsonNode body = webClient.get()
-                .uri(uri -> uri.path("/territory/{ruleSystemCode}/postal-codes/{postalCode}")
-                        .queryParam("countryCode", "ESP")
-                        .build(ruleSystemCode, postalCode))
+                .uri("/territory/{countryCode}/postal-codes/{postalCode}", countryCode, postalCode)
                 .retrieve()
                 .bodyToMono(JsonNode.class)
                 .block();

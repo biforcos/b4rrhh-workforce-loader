@@ -78,8 +78,10 @@ public class SpanishAddressPlacer {
 
     /** Un tipo de vía que el loader escribe tiene que estar en el catálogo: si no, la dirección saldría sin normalizar. */
     public void requireStreetType(String ruleSystemCode, String streetTypeCode) {
+        // Los de España, que es donde están las calles que escribe; no los de la reglamentación
+        // (b4rrhh/backend#169).
         Set<String> known = streetTypesByRuleSystem.computeIfAbsent(ruleSystemCode,
-                key -> new TreeSet<>(territory.streetTypeCodes(key)));
+                key -> new TreeSet<>(territory.streetTypeCodes(SPAIN)));
         if (!known.contains(streetTypeCode)) {
             throw new IllegalStateException("El tipo de via " + streetTypeCode + " que usa el loader no esta en el catalogo de "
                     + ruleSystemCode + ": " + known);
@@ -109,7 +111,7 @@ public class SpanishAddressPlacer {
             // En orden de código, y del maestro: la lista no depende ni del orden ni del locale de nadie.
             for (int i = 1; i <= 999; i++) {
                 String postalCode = province + String.format("%03d", i);
-                territory.postalCodeMunicipality(ruleSystemCode, postalCode)
+                territory.postalCodeMunicipality(SPAIN, postalCode)
                         .filter(m -> province.equals(m.provinceCode()))
                         .ifPresent(found::add);
             }
