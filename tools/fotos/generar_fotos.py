@@ -6,7 +6,7 @@ son la verdad; este script es su procedencia. El loader sólo sube los ficheros 
 
 Son dos pasos, y van por separado a propósito:
 
-    python tools/fotos/generar_fotos.py poblacion --base b4rrhh_cap
+    python tools/fotos/generar_fotos.py poblacion --base b4rrhh_ref178 --semilla demo-seed-v178-b5cd051.dump
     python tools/fotos/generar_fotos.py caras
 
 El primero lee la semilla (una copia restaurada, por docker exec contra el contenedor de Postgres) y
@@ -213,7 +213,8 @@ def poblacion(args: argparse.Namespace) -> None:
 
     lineas = [
         "# Quién lleva cara en la semilla, y por qué (workforce-loader#19).",
-        f"# La escribe tools/fotos/generar_fotos.py poblacion, desde la base {args.base}.",
+        f"# La escribe tools/fotos/generar_fotos.py poblacion, desde la base {args.base}"
+        + (f", restaurada de {args.semilla}." if args.semilla else "."),
         f"# Estado y centro medidos al {FECHA_DEL_ESTADO}. Una matrícula por línea, en su orden:",
         "# matricula|nombre|sexo|centro|estado|motivo",
     ]
@@ -319,6 +320,7 @@ def main() -> None:
 
     p = pasos.add_parser("poblacion", help="escribe poblacion.txt desde una copia de la semilla")
     p.add_argument("--base", required=True, help="la base con la semilla restaurada")
+    p.add_argument("--semilla", help="el volcado publicado del que sale la base, para la cabecera")
     p.add_argument("--contenedor", default="b4rrhh-postgres")
     p.set_defaults(accion=poblacion)
 

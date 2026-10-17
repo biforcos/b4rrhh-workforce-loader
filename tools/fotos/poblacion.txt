@@ -1,5 +1,5 @@
 # Quién lleva cara en la semilla, y por qué (workforce-loader#19).
-# La escribe tools/fotos/generar_fotos.py poblacion, desde la base b4rrhh_cap.
+# La escribe tools/fotos/generar_fotos.py poblacion, desde la base b4rrhh_ref178, restaurada de demo-seed-v178-b5cd051.dump.
 # Estado y centro medidos al 2026-09-30. Una matrícula por línea, en su orden:
 # matricula|nombre|sexo|centro|estado|motivo
 EMP000001|Antonio|M|MAIN_OFFICE|ACTIVE|directorio, página 1; guion de workspace#18
