@@ -1,0 +1,164 @@
+# Quién lleva cara en la semilla, y por qué (workforce-loader#19).
+# La escribe tools/fotos/generar_fotos.py poblacion, desde la base b4rrhh_cap.
+# Estado y centro medidos al 2026-09-30. Una matrícula por línea, en su orden:
+# matricula|nombre|sexo|centro|estado|motivo
+EMP000001|Antonio|M|MAIN_OFFICE|ACTIVE|directorio, página 1; guion de workspace#18
+EMP000002|Isabel|F|MAIN_OFFICE|TERMINATED|directorio, página 1
+EMP000003|Laura|F|BRANCH_SOUTH|ACTIVE|directorio, página 1
+EMP000004|Carmen|F|MAIN_OFFICE|ACTIVE|directorio, página 1
+EMP000005|Laura|F|BRANCH_EAST|ACTIVE|directorio, página 1
+EMP000006|David|M|BRANCH_SOUTH|ACTIVE|directorio, página 1
+EMP000007|Jose|M|BRANCH_NORTH|ACTIVE|directorio, página 1
+EMP000008|Jose|M|BRANCH_NORTH|ACTIVE|directorio, página 1
+EMP000009|Juan|M|BRANCH_NORTH|ACTIVE|directorio, página 1
+EMP000010|Jorge|M|BRANCH_NORTH|TERMINATED|directorio, página 1
+EMP000011|Antonio|M|BRANCH_NORTH|ACTIVE|directorio, página 1
+EMP000012|Raquel|F|BRANCH_EAST|ACTIVE|directorio, página 1
+EMP000013|Dolores|F|MAIN_OFFICE|ACTIVE|directorio, página 1
+EMP000014|Maria|F|BRANCH_SOUTH|TERMINATED|directorio, página 1
+EMP000015|Ines|F|MAIN_OFFICE|TERMINATED|directorio, página 1
+EMP000016|Lucia|F|MAIN_OFFICE|ACTIVE|directorio, página 1
+EMP000017|Laura|F|BRANCH_SOUTH|TERMINATED|directorio, página 1
+EMP000018|Sara|F|BRANCH_NORTH|ACTIVE|directorio, página 1
+EMP000019|Sara|F|BRANCH_EAST|TERMINATED|directorio, página 1
+EMP000020|Ruben|M|MAIN_OFFICE|ACTIVE|directorio, página 1
+EMP000021|Isabel|F|BRANCH_EAST|ACTIVE|directorio, página 1
+EMP000022|Javier|M|BRANCH_EAST|ACTIVE|directorio, página 1
+EMP000023|Ana|F|MAIN_OFFICE|ACTIVE|directorio, página 1
+EMP000024|Cristina|F|BRANCH_EAST|ACTIVE|directorio, página 1
+EMP000025|Beatriz|F|BRANCH_SOUTH|ACTIVE|directorio, página 1; guion de workspace#18
+EMP000026|David|M|MAIN_OFFICE|ACTIVE|directorio, página 1
+EMP000027|Maria|F|BRANCH_EAST|ACTIVE|directorio, página 1
+EMP000028|Pilar|F|MAIN_OFFICE|ACTIVE|directorio, página 1
+EMP000029|Rocio|F|BRANCH_EAST|ACTIVE|directorio, página 1
+EMP000030|Isabel|F|BRANCH_NORTH|TERMINATED|directorio, página 1
+EMP000031|David|M|BRANCH_SOUTH|ACTIVE|directorio, página 1
+EMP000032|Daniel|M|BRANCH_SOUTH|TERMINATED|directorio, página 1
+EMP000033|Daniel|M|BRANCH_SOUTH|ACTIVE|directorio, página 1
+EMP000034|Sergio|M|BRANCH_NORTH|ACTIVE|directorio, página 1
+EMP000035|Jose Antonio|M|BRANCH_EAST|ACTIVE|directorio, página 1
+EMP000036|Ana Maria|F|MAIN_OFFICE|ACTIVE|directorio, página 1
+EMP000037|Daniel|M|BRANCH_NORTH|ACTIVE|directorio, página 1
+EMP000038|Marta|F|BRANCH_EAST|ACTIVE|directorio, página 1
+EMP000039|Pablo|M|BRANCH_SOUTH|ACTIVE|directorio, página 1
+EMP000040|David|M|MAIN_OFFICE|ACTIVE|directorio, página 1
+EMP000041|Jose|M|BRANCH_EAST|ACTIVE|directorio, página 1
+EMP000042|Juan|M|BRANCH_NORTH|ACTIVE|directorio, página 1
+EMP000043|Maria|F|BRANCH_NORTH|ACTIVE|directorio, página 1
+EMP000044|Ana|F|BRANCH_EAST|ACTIVE|directorio, página 1
+EMP000045|David|M|BRANCH_EAST|ACTIVE|directorio, página 1
+EMP000046|Pablo|M|BRANCH_NORTH|ACTIVE|directorio, página 1
+EMP000047|Francisco|M|BRANCH_NORTH|ACTIVE|directorio, página 1
+EMP000048|Rocio|F|BRANCH_NORTH|TERMINATED|directorio, página 1
+EMP000049|Raquel|F|BRANCH_NORTH|ACTIVE|directorio, página 1
+EMP000050|Maria|F|MAIN_OFFICE|ACTIVE|directorio, página 1
+EMP000051|Andres|M|BRANCH_SOUTH|TERMINATED|directorio, página 2
+EMP000052|Jose|M|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000053|Maria|F|BRANCH_NORTH|ACTIVE|directorio, página 2
+EMP000054|Francisco|M|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000055|Beatriz|F|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000056|Ana|F|BRANCH_EAST|ACTIVE|directorio, página 2
+EMP000057|Marta|F|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000058|Sergio|M|BRANCH_SOUTH|ACTIVE|directorio, página 2
+EMP000059|Jose|M|BRANCH_EAST|ACTIVE|directorio, página 2
+EMP000060|Carmen|F|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000061|Francisco|M|BRANCH_SOUTH|ACTIVE|directorio, página 2
+EMP000062|Daniel|M|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000063|Jose|M|BRANCH_SOUTH|ACTIVE|directorio, página 2
+EMP000064|Marta|F|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000065|Carmen|F|BRANCH_NORTH|ACTIVE|directorio, página 2
+EMP000066|Carlos|M|BRANCH_NORTH|TERMINATED|directorio, página 2
+EMP000067|Alejandro|M|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000068|Sara|F|BRANCH_SOUTH|ACTIVE|directorio, página 2
+EMP000069|Elena|F|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000070|Beatriz|F|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000071|Isabel|F|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000072|Miguel|M|BRANCH_NORTH|ACTIVE|directorio, página 2
+EMP000073|Isabel|F|BRANCH_SOUTH|ACTIVE|directorio, página 2
+EMP000074|Cristina|F|BRANCH_NORTH|TERMINATED|directorio, página 2
+EMP000075|Ines|F|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000076|Miguel|M|BRANCH_SOUTH|ACTIVE|directorio, página 2
+EMP000077|Jose|M|BRANCH_NORTH|ACTIVE|directorio, página 2
+EMP000078|Carmen|F|BRANCH_EAST|ACTIVE|directorio, página 2
+EMP000079|Ana|F|BRANCH_EAST|TERMINATED|directorio, página 2
+EMP000080|Javier|M|BRANCH_SOUTH|ACTIVE|directorio, página 2
+EMP000081|Rocio|F|BRANCH_NORTH|ACTIVE|directorio, página 2
+EMP000082|Francisco|M|BRANCH_SOUTH|ACTIVE|directorio, página 2
+EMP000083|Ruben|M|BRANCH_EAST|ACTIVE|directorio, página 2
+EMP000084|Javier|M|BRANCH_SOUTH|TERMINATED|directorio, página 2
+EMP000085|Laura|F|BRANCH_SOUTH|TERMINATED|directorio, página 2
+EMP000086|Raquel|F|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000087|Antonio|M|BRANCH_EAST|ACTIVE|directorio, página 2
+EMP000088|Marta|F|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000089|Carmen|F|BRANCH_EAST|TERMINATED|directorio, página 2
+EMP000090|Francisco|M|BRANCH_EAST|ACTIVE|directorio, página 2
+EMP000091|Laura|F|BRANCH_NORTH|ACTIVE|directorio, página 2
+EMP000092|Francisco|M|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000093|Javier|M|BRANCH_SOUTH|ACTIVE|directorio, página 2
+EMP000094|Maria|F|BRANCH_EAST|ACTIVE|directorio, página 2
+EMP000095|Francisco|M|BRANCH_EAST|TERMINATED|directorio, página 2
+EMP000096|Maria|F|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000097|Elena|F|MAIN_OFFICE|ACTIVE|directorio, página 2
+EMP000098|Andres|M|BRANCH_EAST|ACTIVE|directorio, página 2
+EMP000099|Carmen|F|MAIN_OFFICE|TERMINATED|directorio, página 2
+EMP000100|Sara|F|BRANCH_EAST|ACTIVE|directorio, página 2
+EMP000101|Ana|F|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
+EMP000102|Pablo|M|BRANCH_SOUTH|TERMINATED|muestra de BRANCH_SOUTH, baja
+EMP000104|Manuel|M|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
+EMP000106|Javier|M|MAIN_OFFICE|TERMINATED|muestra de MAIN_OFFICE, baja
+EMP000108|Carmen|F|BRANCH_NORTH|TERMINATED|muestra de BRANCH_NORTH, baja
+EMP000111|Jose|M|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
+EMP000112|Paula|F|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo
+EMP000154|Marta|F|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
+EMP000170|Marta|F|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
+EMP000171|Jorge|M|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
+EMP000172|Laura|F|BRANCH_EAST|TERMINATED|muestra de BRANCH_EAST, baja
+EMP000197|Lucia|F|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo
+EMP000227|Sara|F|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
+EMP000232|Cristina|F|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
+EMP000251|Carmen|F|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
+EMP000278|Elena|F|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
+EMP000289|David|M|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo
+EMP000303|Beatriz|F|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
+EMP000307|Carmen|F|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
+EMP000325|Jose|M|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
+EMP000361|Antonio|M|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
+EMP000362|Daniel|M|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo
+EMP000384|Marta|F|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
+EMP000399|Jorge|M|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
+EMP000400|Francisca|F|BRANCH_EAST|TERMINATED|muestra de BRANCH_EAST, baja
+EMP000418|Daniel|M|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo
+EMP000426|David|M|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
+EMP000449|Jose Antonio|M|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
+EMP000472|Ana|F|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo
+EMP000483|Sergio|M|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
+EMP000486|Isabel|F|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
+EMP000488|Pilar|F|MAIN_OFFICE|TERMINATED|muestra de MAIN_OFFICE, baja
+EMP000531|Marta|F|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
+EMP000542|Antonio|M|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
+EMP000544|Lucia|F|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo
+EMP000560|Francisco|M|BRANCH_NORTH|TERMINATED|muestra de BRANCH_NORTH, baja
+EMP000565|Ines|F|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
+EMP000592|Manuel|M|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo
+EMP000613|Jorge|M|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
+EMP000620|Ana|F|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
+EMP000636|Andres|M|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
+EMP000658|Ines|F|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
+EMP000672|Antonio|M|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo
+EMP000674|Pablo|M|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
+EMP000692|Maria|F|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
+EMP000698|Jose|M|BRANCH_SOUTH|TERMINATED|muestra de BRANCH_SOUTH, baja
+EMP000734|Dolores|F|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
+EMP000737|Carlos|M|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
+EMP000752|Laura|F|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo
+EMP000758|Paula|F|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
+EMP000808|Ines|F|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
+EMP000809|Miguel|M|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo
+EMP000821|Maria del Carmen|F|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
+EMP000825|Lucia|F|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
+EMP000875|Maria|F|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
+EMP000880|Francisco|M|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
+EMP000886|Carlos|M|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo
+EMP000887|Alejandro|M|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
+EMP000938|Jose|M|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo
+EMP000950|Carmen|F|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
