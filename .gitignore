@@ -36,3 +36,6 @@ Thumbs.db
 /lib/
 # Local de Claude Code: guarda comandos autorizados con sus argumentos.
 .claude/settings.local.json
+
+# Lo que deja Python al importar tools/fotos/generar_fotos.py
+__pycache__/
