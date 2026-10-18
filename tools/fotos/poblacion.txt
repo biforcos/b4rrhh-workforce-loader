@@ -1,7 +1,8 @@
 # Quién lleva cara en la semilla, y por qué (workforce-loader#19).
 # La escribe tools/fotos/generar_fotos.py poblacion, desde la base b4rrhh_ref178, restaurada de demo-seed-v178-b5cd051.dump.
 # Estado y centro medidos al 2026-09-30. Una matrícula por línea, en su orden:
-# matricula|nombre|sexo|centro|estado|motivo
+# matricula|nombre|sexo|centro|estado|motivo[|intento]
+# El intento, si está, entra en la seed de la cara (ver INTENTO en el script).
 EMP000001|Antonio|M|MAIN_OFFICE|ACTIVE|directorio, página 1; guion de workspace#18
 EMP000002|Isabel|F|MAIN_OFFICE|TERMINATED|directorio, página 1
 EMP000003|Laura|F|BRANCH_SOUTH|ACTIVE|directorio, página 1
@@ -10,7 +11,7 @@ EMP000005|Laura|F|BRANCH_EAST|ACTIVE|directorio, página 1
 EMP000006|David|M|BRANCH_SOUTH|ACTIVE|directorio, página 1
 EMP000007|Jose|M|BRANCH_NORTH|ACTIVE|directorio, página 1
 EMP000008|Jose|M|BRANCH_NORTH|ACTIVE|directorio, página 1
-EMP000009|Juan|M|BRANCH_NORTH|ACTIVE|directorio, página 1
+EMP000009|Juan|M|BRANCH_NORTH|ACTIVE|directorio, página 1|1
 EMP000010|Jorge|M|BRANCH_NORTH|TERMINATED|directorio, página 1
 EMP000011|Antonio|M|BRANCH_NORTH|ACTIVE|directorio, página 1
 EMP000012|Raquel|F|BRANCH_EAST|ACTIVE|directorio, página 1
@@ -123,7 +124,7 @@ EMP000303|Beatriz|F|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
 EMP000307|Carmen|F|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
 EMP000325|Jose|M|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
 EMP000361|Antonio|M|BRANCH_NORTH|ACTIVE|muestra de BRANCH_NORTH, activo
-EMP000362|Daniel|M|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo
+EMP000362|Daniel|M|BRANCH_SOUTH|ACTIVE|muestra de BRANCH_SOUTH, activo|1
 EMP000384|Marta|F|MAIN_OFFICE|ACTIVE|muestra de MAIN_OFFICE, activo
 EMP000399|Jorge|M|BRANCH_EAST|ACTIVE|muestra de BRANCH_EAST, activo
 EMP000400|Francisca|F|BRANCH_EAST|TERMINATED|muestra de BRANCH_EAST, baja

@@ -53,6 +53,15 @@ DETERMINISMO
     EMP000025 en la misma máquina da la misma cara. Entre máquinas o tarjetas distintas no es
     reproducible bit a bit, y por eso los JPEG van al repositorio.
 
+INTENTO
+    Si una cara sale mal (la primera tanda dio dos casi en blanco y negro, EMP000009 y EMP000362),
+    no se retoca a mano ni se cambia la regla: poblacion.txt admite un séptimo campo, el intento,
+    que entra en el hash de la seed. «EMP000009|...|1» es la seed de «EMP000009|1»; sin campo, o
+    con 0, es la de siempre, así que las demás no se mueven. La franja de edad NO lo usa: sigue
+    saliendo de la matrícula sola, porque lo que se corrige es la foto, no la persona.
+        python tools/fotos/generar_fotos.py caras --solo EMP000009 EMP000362
+    El paso «poblacion» conserva los intentos que ya haya en la lista al reescribirla.
+
 SEXO
     employee.employee no tiene sexo ni fecha de nacimiento. Se deduce del nombre de pila con la
     tabla NOMBRES, que tiene los 42 de la semilla. Ante un nombre que no esté en la tabla el script
@@ -211,32 +220,37 @@ def poblacion(args: argparse.Namespace) -> None:
     if desconocidos:
         sys.exit("Nombres que no están en la tabla NOMBRES (no se adivina): " + ", ".join(desconocidos))
 
+    intentos = {m: i for m, _, i in leer_poblacion(comprobar=False)} if POBLACION.exists() else {}
     lineas = [
         "# Quién lleva cara en la semilla, y por qué (workforce-loader#19).",
         f"# La escribe tools/fotos/generar_fotos.py poblacion, desde la base {args.base}"
         + (f", restaurada de {args.semilla}." if args.semilla else "."),
         f"# Estado y centro medidos al {FECHA_DEL_ESTADO}. Una matrícula por línea, en su orden:",
-        "# matricula|nombre|sexo|centro|estado|motivo",
+        "# matricula|nombre|sexo|centro|estado|motivo[|intento]",
+        "# El intento, si está, entra en la seed de la cara (ver INTENTO en el script).",
     ]
     for matricula in sorted(motivos):
         _, nombre, centro, estado = filas[matricula]
-        lineas.append("|".join([matricula, nombre, NOMBRES[nombre], centro, estado,
-                                "; ".join(motivos[matricula])]))
+        campos = [matricula, nombre, NOMBRES[nombre], centro, estado, "; ".join(motivos[matricula])]
+        if intentos.get(matricula):
+            campos.append(str(intentos[matricula]))
+        lineas.append("|".join(campos))
     POBLACION.write_text("\n".join(lineas) + "\n", encoding="utf-8", newline="\n")
     print(f"{len(motivos)} matrículas en {POBLACION.relative_to(RAIZ)}")
 
 
-def leer_poblacion() -> list[tuple[str, str]]:
+def leer_poblacion(comprobar: bool = True) -> list[tuple[str, str, int]]:
     if not POBLACION.exists():
         sys.exit(f"Falta {POBLACION}: primero el paso «poblacion».")
     filas = []
     for linea in POBLACION.read_text(encoding="utf-8").splitlines():
         if not linea or linea.startswith("#"):
             continue
-        matricula, nombre, *_ = linea.split("|")
-        filas.append((matricula, nombre))
-    desconocidos = sorted({nombre for _, nombre in filas} - NOMBRES.keys())
-    if desconocidos:
+        campos = linea.split("|")
+        intento = int(campos[6]) if len(campos) > 6 and campos[6] else 0
+        filas.append((campos[0], campos[1], intento))
+    desconocidos = sorted({nombre for _, nombre, _ in filas} - NOMBRES.keys())
+    if comprobar and desconocidos:
         sys.exit("Nombres que no están en la tabla NOMBRES (no se adivina): " + ", ".join(desconocidos))
     return filas
 
@@ -245,8 +259,9 @@ def huella(matricula: str) -> bytes:
     return hashlib.sha256(matricula.encode("utf-8")).digest()
 
 
-def seed_de(matricula: str) -> int:
-    return int.from_bytes(huella(matricula)[:4], "big")
+def seed_de(matricula: str, intento: int = 0) -> int:
+    clave = matricula if intento == 0 else f"{matricula}|{intento}"
+    return int.from_bytes(huella(clave)[:4], "big")
 
 
 def edad_de(matricula: str) -> int:
@@ -274,9 +289,9 @@ def guardar(imagen, destino: Path) -> tuple[int, int]:
 
 def caras(args: argparse.Namespace) -> None:
     filas = leer_poblacion()
-    pendientes = [(m, n) for m, n in filas if args.rehacer or not (FOTOS / f"{m}.jpg").exists()]
+    pendientes = [f for f in filas if args.rehacer or not (FOTOS / f"{f[0]}.jpg").exists()]
     if args.solo:
-        pendientes = [(m, n) for m, n in filas if m in set(args.solo)]
+        pendientes = [f for f in filas if f[0] in set(args.solo)]
     print(f"{len(filas)} en la población, {len(pendientes)} por generar en {FOTOS.relative_to(RAIZ)}")
     if not pendientes:
         return
@@ -296,8 +311,8 @@ def caras(args: argparse.Namespace) -> None:
     pipe.set_progress_bar_config(disable=True)
 
     FOTOS.mkdir(parents=True, exist_ok=True)
-    for indice, (matricula, nombre) in enumerate(pendientes, start=1):
-        generador = torch.Generator(device="cuda").manual_seed(seed_de(matricula))
+    for indice, (matricula, nombre, intento) in enumerate(pendientes, start=1):
+        generador = torch.Generator(device="cuda").manual_seed(seed_de(matricula, intento))
         imagen = pipe(
             prompt=prompt_de(matricula, nombre),
             negative_prompt=PROMPT_NEGATIVO,
@@ -309,7 +324,8 @@ def caras(args: argparse.Namespace) -> None:
         ).images[0]
         tamano, calidad = guardar(imagen, FOTOS / f"{matricula}.jpg")
         aviso = "" if calidad == CALIDAD else f"  (calidad {calidad} para no pasar de 60 KB)"
-        print(f"[{indice}/{len(pendientes)}] {matricula} {nombre}, {edad_de(matricula)} años:"
+        print(f"[{indice}/{len(pendientes)}] {matricula} {nombre}, {edad_de(matricula)} años,"
+              f" intento {intento}:"
               f" {tamano // 1024} KB{aviso}", flush=True)
 
 
