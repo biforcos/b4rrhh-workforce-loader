@@ -2,31 +2,25 @@ package com.b4rrhh.workforceloader.infrastructure.api;
 
 import com.b4rrhh.workforceloader.application.EmployeePhotoUploader;
 import com.b4rrhh.workforceloader.infrastructure.config.LoaderProperties;
-import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
-import java.net.URI;
-import java.util.Map;
-
 /**
- * La foto de un empleado, subida por el mismo camino que la pantalla (workforce-loader#19): el
- * backend da una URL prefirmada, el fichero va por {@code PUT} directo al almacén, y luego se le
- * confirma al backend la clave para que la apunte en el empleado.
+ * La foto de un empleado, subida por el mismo camino que la pantalla: un {@code PUT} con el JPEG a la
+ * API, que lo guarda y apunta la clave (b4rrhh/backend#177).
  *
- * <p>Son dos clientes y no uno a propósito. El del backend lleva el token; el del almacén no puede
- * llevarlo: la URL prefirmada ya trae su firma, y una cabecera {@code Authorization} de más hace
- * que el almacén la rechace.
+ * <p>Hasta el #177 eran tres viajes —URL prefirmada, {@code PUT} directo al almacén sin token y
+ * confirmación— y este cliente llevaba dos {@code WebClient}. La URL prefirmada nombraba el almacén tal
+ * como lo veía el backend, que desde fuera de su máquina no era ninguno.
  */
 @Component
 public class EmployeePhotoApiClient implements EmployeePhotoUploader {
 
     private final BackendTargetGuard backendTargetGuard;
     private final WebClient backend;
-    private final WebClient almacen;
 
     public EmployeePhotoApiClient(
             LoaderProperties properties,
@@ -41,7 +35,6 @@ public class EmployeePhotoApiClient implements EmployeePhotoUploader {
             builder.defaultHeader(HttpHeaders.AUTHORIZATION, token);
         }
         this.backend = builder.build();
-        this.almacen = webClientBuilder.clone().build();
     }
 
     private static String normalizeToken(String rawToken) {
@@ -57,41 +50,19 @@ public class EmployeePhotoApiClient implements EmployeePhotoUploader {
 
     @Override
     public void upload(String ruleSystemCode, String employeeTypeCode, String employeeNumber, byte[] jpeg) {
-        // Antes de pedir la URL, que ya es una escritura: el backend no apunta nada todavía, pero
-        // el fichero que viene detrás sí acaba en el almacén de esa base (workforce-loader#8).
         backendTargetGuard.verifyBeforeWriting();
-        String operacion = "foto de " + ruleSystemCode + "/" + employeeTypeCode + "/" + employeeNumber;
         try {
-            JsonNode subida = backend.post()
-                    .uri("/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/photo/upload-url",
+            backend.put()
+                    .uri("/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/photo",
                             ruleSystemCode, employeeTypeCode, employeeNumber)
-                    .retrieve()
-                    .bodyToMono(JsonNode.class)
-                    .block();
-            String uploadUrl = subida == null ? null : subida.path("uploadUrl").asText(null);
-            String objectKey = subida == null ? null : subida.path("objectKey").asText(null);
-            if (uploadUrl == null || objectKey == null) {
-                throw new IllegalStateException("el backend no ha dado URL de subida para la " + operacion);
-            }
-
-            // URI y no String: la firma va en la query, y como plantilla se volvería a codificar.
-            almacen.put()
-                    .uri(URI.create(uploadUrl))
                     .contentType(MediaType.IMAGE_JPEG)
                     .bodyValue(jpeg)
                     .retrieve()
                     .toBodilessEntity()
                     .block();
-
-            backend.put()
-                    .uri("/employees/{ruleSystemCode}/{employeeTypeCode}/{employeeNumber}/photo",
-                            ruleSystemCode, employeeTypeCode, employeeNumber)
-                    .bodyValue(Map.of("objectKey", objectKey))
-                    .retrieve()
-                    .toBodilessEntity()
-                    .block();
         } catch (WebClientResponseException ex) {
-            throw new IllegalStateException("HTTP " + ex.getStatusCode() + " subiendo la " + operacion
+            throw new IllegalStateException("HTTP " + ex.getStatusCode() + " subiendo la foto de "
+                    + ruleSystemCode + "/" + employeeTypeCode + "/" + employeeNumber
                     + ": " + ex.getResponseBodyAsString(), ex);
         }
     }
